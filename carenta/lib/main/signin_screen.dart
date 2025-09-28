@@ -1,6 +1,6 @@
 import 'package:carenta/admin/admin_dashboard.dart';
 import 'package:carenta/main/signup_screen.dart';
-import 'package:carenta/service/login_service.dart';
+import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/user/user_dashboard.dart';
 import 'package:flutter/material.dart';
 
@@ -12,7 +12,7 @@ class SigninScreen extends StatefulWidget {
 }
 
 class _SigninScreenState extends State<SigninScreen> {
-  final _loginController = TextEditingController(); // username/email/phone
+  final _loginController = TextEditingController(); // email for now
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
@@ -25,41 +25,44 @@ class _SigninScreenState extends State<SigninScreen> {
       _errorMessage = null;
     });
 
-    final loginInput = _loginController.text.trim();
+    final email = _loginController.text.trim();
     final password = _passwordController.text;
 
-    if (loginInput.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Please enter your login and password';
+        _errorMessage = 'Please enter your email and password';
       });
       return;
     }
 
-    final result = await LoginService().login(loginInput, password);
-    setState(() => _isLoading = false);
+    try {
+      final result = await SessionService.login(email, password);
+      setState(() => _isLoading = false);
 
-    if (result['status'] == 'success') {
-      final role = (result['role'] ?? '').toLowerCase();
-      final accountType = (result['account_type'] ?? '').toLowerCase();
+      if (result['success'] == true) {
+        final role = (result['data']?['role'] ?? '').toLowerCase();
 
-      Widget targetScreen;  
+        Widget targetScreen;
+        if (role == 'admin' || role == 'manager') {
+          targetScreen = const AdminDashboard();
+        } else {
+          targetScreen = const UserDashboard();
+        }
 
-      // Grouped navigation
-      if (accountType == 'admin_table' && (role == 'admin' || role == 'manager')) {
-        targetScreen = const AdminDashboard();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => targetScreen),
+        );
       } else {
-        // Users & guests
-        targetScreen = const UserDashboard();
+        setState(() => _errorMessage = result['message'] ?? 'Login failed');
       }
-
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => targetScreen),
-      );
-    } else {
-      setState(() => _errorMessage = result['message']);
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Error: $e";
+      });
     }
   }
 
@@ -100,8 +103,8 @@ class _SigninScreenState extends State<SigninScreen> {
                       children: [
                         _buildTextField(
                           controller: _loginController,
-                          label: 'Username / Email / Phone Number',
-                          icon: Icons.person,
+                          label: 'Email',
+                          icon: Icons.email,
                         ),
                         const SizedBox(height: 20),
                         _buildTextField(
@@ -132,14 +135,16 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                           child: _isLoading
                               ? const CircularProgressIndicator()
-                              : const Text('Sign In', style: TextStyle(fontSize: 18)),
+                              : const Text('Sign In',
+                                  style: TextStyle(fontSize: 18)),
                         ),
                         const SizedBox(height: 10),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const SignupScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const SignupScreen()),
                             );
                           },
                           child: const Text(

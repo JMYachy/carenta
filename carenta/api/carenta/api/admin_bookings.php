@@ -6,11 +6,11 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 ini_set('display_errors', '0'); // avoid HTML notices in JSON
 
-// ---- DB connection (adjust $db to your actual schema name) ----
+// ---- DB connection ----
 $host = "localhost";
 $user = "root";
 $pass = "";
-$db   = "carentadb"; // or "carenta_db" if that's the actual one you use
+$db   = "carentadb"; // adjust if needed
 
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {
@@ -31,6 +31,24 @@ if ($status !== null && !in_array($status, $allowedStatus, true)) {
   echo json_encode(['ok' => false, 'error' => 'BAD_STATUS', 'message' => 'Invalid status filter']);
   exit;
 }
+
+// ---- auto-update statuses ----
+// Move CONFIRMED → ONGOING if current datetime is within range
+$conn->query("
+  UPDATE rentaltbl
+  SET status = 'ongoing'
+  WHERE status = 'confirmed'
+    AND NOW() >= STR_TO_DATE(CONCAT(start_date, ' ', IFNULL(start_time, '00:00:00')), '%Y-%m-%d %H:%i:%s')
+    AND NOW() <= STR_TO_DATE(CONCAT(end_date, ' ', IFNULL(end_time, '23:59:59')), '%Y-%m-%d %H:%i:%s')
+");
+
+// Move ONGOING → COMPLETED if current datetime is past end datetime
+$conn->query("
+  UPDATE rentaltbl
+  SET status = 'completed'
+  WHERE status = 'ongoing'
+    AND NOW() > STR_TO_DATE(CONCAT(end_date, ' ', IFNULL(end_time, '23:59:59')), '%Y-%m-%d %H:%i:%s')
+");
 
 // ---- query ----
 $sql = "

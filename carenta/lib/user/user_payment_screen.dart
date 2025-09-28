@@ -1,4 +1,6 @@
+import 'package:carenta/main/splash_screen.dart';
 import 'package:carenta/service/user/paymongo_service.dart';
+import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart'; // for redirect handling
@@ -13,9 +15,42 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
+  int? _userId;
+  bool _checkingSession = true;
   String _selectedMethod = '';
   bool _loading = false;
   final _currencyFmt = NumberFormat('#,##0.##');
+
+  @override
+void initState() {
+  super.initState();
+  _checkSession();
+}
+
+Future<void> _checkSession() async {
+  try {
+    final res = await SessionService.checkSession();
+    if (res['success'] == true) {
+      setState(() {
+        _userId = res['data']?['userid'];
+        _checkingSession = false;
+      });
+    } else {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+      );
+    }
+  } catch (_) {
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const SplashScreen()),
+    );
+  }
+}
+
 
   Future<void> _confirmPayment() async {
     if (_selectedMethod.isEmpty) {
@@ -34,7 +69,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         method: _selectedMethod.toLowerCase(), // "gcash", "paymaya", "card"
       );
 
-      final intentId = response["data"]["id"];
+      //final intentId = response["data"]["id"];
       final status = response["data"]["attributes"]["status"];
 
       if (!mounted) return;
@@ -73,8 +108,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+    @override
+Widget build(BuildContext context) {
+  if (_checkingSession) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+
     final booking = widget.booking;
 
     final totalAmount = (booking['total_amount'] ?? 0).toDouble();

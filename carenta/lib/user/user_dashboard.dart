@@ -1,7 +1,7 @@
-import 'package:carenta/user/user_bookingscreen.dart';
+import 'package:carenta/user/user_booking_screen.dart';
 import 'package:carenta/user/user_favorite_screen.dart';
 import 'package:carenta/user/user_homescreen.dart';
-import 'package:carenta/user/user_profilescreen.dart';
+import 'package:carenta/user/user_profile_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserDashboard extends StatefulWidget {

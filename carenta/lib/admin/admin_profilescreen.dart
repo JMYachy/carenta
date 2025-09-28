@@ -1,5 +1,7 @@
 import 'dart:io';
-import 'package:carenta/service/admin/adminprofile_service.dart';
+import 'package:carenta/main/splash_screen.dart';
+import 'package:carenta/service/admin/admin_profile_service.dart';
+import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -13,8 +15,8 @@ class AdminProfileScreen extends StatefulWidget {
 class _AdminProfileScreenState extends State<AdminProfileScreen> {
   final _svc = const AdminProfileService(apiRoot: 'http://10.0.2.2/carenta/api');
 
-  // TODO: replace with real admin id from session/SharedPreferences
-  final int _adminId = 1;
+  int? _adminId;
+  bool _checkingSession = true;
 
   late Future<Map<String, dynamic>> _future;
   bool _isEditing = false;
@@ -34,11 +36,37 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _future = _load();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    try {
+      final res = await SessionService.checkSession();
+      if (res['success'] == true &&
+          (res['data']?['account_type'] == 'admin_table')) {
+        setState(() {
+          _adminId = res['data']?['adminid'];
+          _future = _load();
+          _checkingSession = false;
+        });
+      } else {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SplashScreen()),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SplashScreen()),
+      );
+    }
   }
 
   Future<Map<String, dynamic>> _load() async {
-    final res = await _svc.fetchProfile(_adminId);
+    final res = await _svc.fetchProfile(_adminId!);
     if (res['status'] == 'success') {
       final data = res['data'] as Map<String, dynamic>;
       _username = (data['username'] ?? '').toString();
@@ -55,13 +83,17 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 
   void _refreshProfile() {
-    setState(() { _future = _load(); }); // block form -> returns void
+    setState(() {
+      _future = _load();
+    });
   }
 
   Future<void> _save() async {
-    setState(() { _saving = true; });
+    setState(() {
+      _saving = true;
+    });
     final res = await _svc.updateProfile(
-      adminId: _adminId,
+      adminId: _adminId!,
       firstName: _first.text.trim(),
       lastName: _last.text.trim(),
       email: _email.text.trim(),
@@ -69,12 +101,15 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       twoFactorEnabled: _twoFA,
     );
     if (!mounted) return;
-    setState(() { _saving = false; });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
+    setState(() {
+      _saving = false;
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
     if (res['status'] == 'success') {
       setState(() {
         _isEditing = false;
-        _future = _load(); // block form
+        _future = _load();
       });
     }
   }
@@ -82,30 +117,40 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   Future<void> _changePassword() async {
     final creds = await _askPassword(context);
     if (creds == null) return;
-    setState(() { _changingPw = true; });
+    setState(() {
+      _changingPw = true;
+    });
     final res = await _svc.changePassword(
-      adminId: _adminId,
+      adminId: _adminId!,
       oldPassword: creds.$1,
       newPassword: creds.$2,
     );
     if (!mounted) return;
-    setState(() { _changingPw = false; });
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
+    setState(() {
+      _changingPw = false;
+    });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
   }
 
   Future<void> _pickAndUploadAvatar() async {
-    if (!_isEditing) return; // allow only while editing
+    if (!_isEditing) return;
     final picker = ImagePicker();
-    final x = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 88);
+    final x = await picker.pickImage(
+        source: ImageSource.gallery, maxWidth: 1200, imageQuality: 88);
     if (x == null) return;
     final file = File(x.path);
-    final res = await _svc.uploadAvatar(adminId: _adminId, imageFile: file);
+    final res = await _svc.uploadAvatar(adminId: _adminId!, imageFile: file);
     if (!mounted) return;
     if (res['status'] == 'success') {
-      setState(() { _avatarUrl = (res['avatar_url'] as String?); });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'])));
+      setState(() {
+        _avatarUrl = (res['avatar_url'] as String?);
+      });
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res['message'])));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Upload failed')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Upload failed')));
     }
   }
 
@@ -120,6 +165,18 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_checkingSession) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_adminId == null) {
+      return const Scaffold(
+        body: Center(child: Text("No admin session")),
+      );
+    }
+
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -137,7 +194,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 if (snap.hasError) {
                   return _Error(
                     message: 'Failed to load profile',
-                    onRetry: _refreshProfile, // block form inside helper
+                    onRetry: _refreshProfile,
                   );
                 }
                 return ListView(
@@ -155,16 +212,37 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       title: 'Personal info',
                       child: Column(
                         children: [
-                          _FieldRow(label: 'First name', controller: _first, enabled: _isEditing),
-                          _FieldRow(label: 'Last name', controller: _last, enabled: _isEditing),
-                          _FieldRow(label: 'Email', controller: _email, enabled: _isEditing, keyboardType: TextInputType.emailAddress),
-                          _FieldRow(label: 'Phone', controller: _phone, enabled: _isEditing, keyboardType: TextInputType.phone),
+                          _FieldRow(
+                              label: 'First name',
+                              controller: _first,
+                              enabled: _isEditing),
+                          _FieldRow(
+                              label: 'Last name',
+                              controller: _last,
+                              enabled: _isEditing),
+                          _FieldRow(
+                              label: 'Email',
+                              controller: _email,
+                              enabled: _isEditing,
+                              keyboardType: TextInputType.emailAddress),
+                          _FieldRow(
+                              label: 'Phone',
+                              controller: _phone,
+                              enabled: _isEditing,
+                              keyboardType: TextInputType.phone),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Two-factor authentication'),
-                            subtitle: const Text('Add extra security to your account'),
+                            subtitle:
+                                const Text('Add extra security to your account'),
                             value: _twoFA,
-                            onChanged: _isEditing ? (v) { setState(() { _twoFA = v; }); } : null,
+                            onChanged: _isEditing
+                                ? (v) {
+                                    setState(() {
+                                      _twoFA = v;
+                                    });
+                                  }
+                                : null,
                           ),
                         ],
                       ),
@@ -178,7 +256,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                             child: OutlinedButton.icon(
                               onPressed: _changingPw ? null : _changePassword,
                               icon: const Icon(Icons.password_rounded),
-                              label: Text(_changingPw ? 'Changing…' : 'Change password'),
+                              label: Text(
+                                  _changingPw ? 'Changing…' : 'Change password'),
                             ),
                           ),
                         ],
@@ -195,8 +274,16 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       bottomNavigationBar: _ActionsBar(
         editing: _isEditing,
         saving: _saving,
-        onEdit: () { setState(() { _isEditing = true; }); },
-        onCancel: () { setState(() { _isEditing = false; }); },
+        onEdit: () {
+          setState(() {
+            _isEditing = true;
+          });
+        },
+        onCancel: () {
+          setState(() {
+            _isEditing = false;
+          });
+        },
         onSave: _saving ? null : _save,
       ),
     );

@@ -1,6 +1,6 @@
-import 'package:carenta/service/admin/admingetcar_service.dart';
-import 'package:carenta/user/user_cardetail.dart';
-import 'package:carenta/widget/buildercard_listedcarmodel.dart';
+import 'package:carenta/service/admin/admin_get_car_service.dart';
+import 'package:carenta/user/user_car_detail.dart';
+import 'package:carenta/utils/builder_card_listed_car_model.dart';
 import 'package:flutter/material.dart';
 
 class UserHomescreen extends StatefulWidget {

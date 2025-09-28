@@ -1,6 +1,10 @@
-import 'package:carenta/admin/admin_bookingscreen.dart';
-import 'package:carenta/admin/admin_carscreen.dart';
+import 'dart:async';
+import 'package:carenta/admin/admin_booking_screen.dart';
+import 'package:carenta/admin/admin_car_screen.dart';
+import 'package:carenta/admin/home_screen/admin_homescreen.dart';
 import 'package:carenta/admin/admin_profilescreen.dart';
+import 'package:carenta/service/admin/admin_dashboard_stats_service.dart';
+import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:flutter/material.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -12,6 +16,8 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
+  Map<String, dynamic>? _sessionData; // store session info
+  bool _loadingSession = true;
 
   final List<String> _titles = [
     'Home',
@@ -20,14 +26,55 @@ class _AdminDashboardState extends State<AdminDashboard> {
     'Profile',
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    try {
+      final res = await SessionService.checkSession();
+      if (res["success"] == true) {
+        setState(() {
+          _sessionData = res["data"];
+          _loadingSession = false;
+        });
+      } else {
+        // No active session → back to login screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, "/login");
+        }
+      }
+    } catch (e) {
+      debugPrint("Session check error: $e");
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, "/login");
+      }
+    }
+  }
+
   void _onTabTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
+  Future<void> _logout() async {
+    await SessionService.logout();
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, "/login");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loadingSession) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final List<Widget> screens = [
       _buildEmptyHome(),
       _buildCarsScreen(),
@@ -64,10 +111,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {},
-          ),
+          if (_sessionData != null) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Center(
+                child: Text(
+                  _sessionData?["username"] ?? "Admin",
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: _logout,
+            ),
+          ],
         ],
       ),
       body: screens[_selectedIndex],
@@ -93,14 +151,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildEmptyHome() {
-    return const Center(
-      child: Text(
-        '',
-        style: TextStyle(fontSize: 16, color: Colors.grey),
-      ),
-    );
-  }
+  // inside AdminDashboardState
+Widget _buildEmptyHome() {
+  return FutureBuilder<Map<String, dynamic>>(
+    future: AdminDashboardService.fetchStats(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return Center(child: Text("Error: ${snapshot.error}"));
+      }
+
+      final data = snapshot.data?["data"] ?? {};
+      return AdminHomeScreen(
+        totalUsers: data["total_users"] ?? 0,
+        totalCars: data["total_cars"] ?? 0,
+        totalBookings: data["total_bookings"] ?? 0,
+        totalRevenue: (data["total_revenue"] ?? 0).toDouble(),
+      );
+    },
+  );
+}
 
   Widget _buildCarsScreen() => const AdminCarScreen();
 

@@ -73,8 +73,6 @@ class CardbuilderBookingcard extends StatelessWidget {
       elevation: 0.8,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        onTap: () {}, // UI only
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -119,7 +117,6 @@ class CardbuilderBookingcard extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
