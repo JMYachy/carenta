@@ -77,52 +77,52 @@ try {
     // Pick ONE image per car (first image) and ONE active price per car (latest valid)
     $sql = "
         SELECT 
-            c.carid,
-            c.year,
-            c.manufacturer,
-            c.model,
-            c.type,
-            c.license_plate,
-            c.color,
-            c.transmission,
-            c.fueltype,
-            c.milage,
-            c.seatingcap,
-            c.status,
-            c.createdAt,
-            c.withDriver,
-            m.media_url,
-            m.thumbnail_url,
-            p.hourly_rate,
-            p.daily_rate,
-            p.weekly_rate,
-            p.monthly_rate,
-            p.currency
-        FROM cartbl c
-        LEFT JOIN (
-            SELECT x.carid, x.media_url, x.thumbnail_url
-            FROM mediatbl x
-            JOIN (
-                SELECT carid, MIN(mediaid) AS mid
-                FROM mediatbl
-                WHERE media_type = 'image'
-                GROUP BY carid
-            ) y ON y.carid = x.carid AND y.mid = x.mediaid
-        ) m ON m.carid = c.carid
-        LEFT JOIN (
-            SELECT t.carid, t.hourly_rate, t.daily_rate, t.weekly_rate, t.monthly_rate, t.currency, t.updatedAt
-            FROM pricetbl t
-            JOIN (
-                SELECT carid, MAX(updatedAt) AS latest
-                FROM pricetbl
-                WHERE (valid_from IS NULL OR valid_from <= CURDATE())
-                  AND (valid_to   IS NULL OR valid_to   >= CURDATE())
-                GROUP BY carid
-            ) u ON u.carid = t.carid AND u.latest = t.updatedAt
-        ) p ON p.carid = c.carid
-        $whereSql
-        ORDER BY STR_TO_DATE(c.createdAt, '%Y-%m-%d %H:%i:%s') DESC
-        LIMIT ? OFFSET ?
+    c.carid,
+    c.year,
+    c.manufacturer,
+    c.model,
+    c.type,
+    c.license_plate,
+    c.color,
+    c.transmission,
+    c.fueltype,
+    c.milage,
+    c.seatingcap,
+    c.status,
+    c.created_at,
+    c.withDriver,
+    m.media_url,
+    m.thumbnail_url,
+    p.hourly_rate,
+    p.daily_rate,
+    p.weekly_rate,
+    p.monthly_rate,
+    p.currency
+FROM cartbl c
+LEFT JOIN (
+    SELECT x.carid, x.media_url, x.thumbnail_url
+    FROM mediatbl x
+    JOIN (
+        SELECT carid, MIN(mediaid) AS mid
+        FROM mediatbl
+        WHERE media_type = 'image'
+        GROUP BY carid
+    ) y ON y.carid = x.carid AND y.mid = x.mediaid
+) m ON m.carid = c.carid
+LEFT JOIN (
+    SELECT t.carid, t.hourly_rate, t.daily_rate, t.weekly_rate, t.monthly_rate, t.currency, t.updated_at
+    FROM pricetbl t
+    JOIN (
+        SELECT carid, MAX(updated_at) AS latest
+        FROM pricetbl
+        WHERE (valid_from IS NULL OR valid_from <= CURDATE())
+          AND (valid_to   IS NULL OR valid_to   >= CURDATE())
+        GROUP BY carid
+    ) u ON u.carid = t.carid AND u.latest = t.updated_at
+) p ON p.carid = c.carid
+$whereSql
+ORDER BY c.created_at DESC
+LIMIT ? OFFSET ?
     ";
 
     // Bind parameters (search + limit/offset) using call_user_func_array (needs references)

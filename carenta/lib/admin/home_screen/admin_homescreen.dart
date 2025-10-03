@@ -1,5 +1,4 @@
 import 'package:carenta/admin/home_screen/booking_time_line.dart';
-import 'package:carenta/admin/home_screen/car_map.dart';
 import 'package:carenta/admin/home_screen/car_status_list.dart';
 import 'package:carenta/admin/home_screen/kpi_summary.dart';
 import 'package:carenta/admin/home_screen/recent_activity_feed.dart';
@@ -36,7 +35,7 @@ class AdminHomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // KPI Summary
+          // ✅ Live KPI Summary
           KpiSummary(
             totalUsers: totalUsers,
             totalCars: totalCars,
@@ -52,10 +51,6 @@ class AdminHomeScreen extends StatelessWidget {
           const SectionHeader(title: "Today's Bookings Timeline"),
           const BookingTimeline(),
           const SizedBox(height: 24),
-
-          /*const SectionHeader(title: "Car Locations"),
-          const CarMap(),
-          const SizedBox(height: 24),*/ 
 
           const SectionHeader(title: "Recent Activity"),
           const ActivityFeed(),

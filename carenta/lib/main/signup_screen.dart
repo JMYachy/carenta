@@ -62,9 +62,9 @@ class _SignupScreenState extends State<SignupScreen> {
     final message = (res['message'] ?? 'Something went wrong').toString();
 
     if (status == 'success') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ $message')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('✅ $message')));
       // Navigate to Sign in (replace so user can’t go back)
       Navigator.pushReplacement(
         context,
@@ -72,9 +72,9 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     } else {
       // Show server-provided error or generic fallback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('⚠️ $message')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('⚠️ $message')));
     }
   }
 
@@ -115,134 +115,183 @@ class _SignupScreenState extends State<SignupScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Form(
                     key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: InputDecoration(
-                            labelText: 'Phone Number',
-                            labelStyle: const TextStyle(color: Colors.black),
-                            filled: true,
-                            fillColor: Colors.white,
-                            prefixIcon: const Icon(Icons.phone, color: Color(0xFF0077B6)),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          style: const TextStyle(color: Colors.black),
-                          validator: _validatePhone,
-                        ),
-                        const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscure,
-                          decoration: InputDecoration(
-                            labelText: 'Password',
-                            labelStyle: const TextStyle(color: Colors.black),
-                            filled: true,
-                            fillColor: Colors.white,
-                            prefixIcon: const Icon(Icons.lock, color: Color(0xFF0077B6)),
-                            suffixIcon: IconButton(
-                              onPressed: () => setState(() => _obscure = !_obscure),
-                              icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off,
-                                  color: const Color(0xFF0077B6)),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          style: const TextStyle(color: Colors.black),
-                          validator: _validatePassword,
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _submit,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF0077B6),
-                              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 12),
-                              shape: RoundedRectangleBorder(
+                    child: SingleChildScrollView(
+                      // ✅ added here
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelText: 'Phone Number',
+                              labelStyle: const TextStyle(color: Colors.black),
+                              filled: true,
+                              fillColor: Colors.white,
+                              prefixIcon: const Icon(
+                                Icons.phone,
+                                color: Color(0xFF0077B6),
+                              ),
+                              border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
                               ),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text('Next', style: TextStyle(fontSize: 18, color: Colors.black)),
+                            style: const TextStyle(color: Colors.black),
+                            validator: _validatePhone,
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          '--------------- OR ---------------',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _isLoading ? null : () {},
-                                icon: const Icon(Icons.facebook, color: Colors.white),
-                                label: const Text('Facebook', style: TextStyle(color: Colors.black)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF3b5998),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscure,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              labelStyle: const TextStyle(color: Colors.black),
+                              filled: true,
+                              fillColor: Colors.white,
+                              prefixIcon: const Icon(
+                                Icons.lock,
+                                color: Color(0xFF0077B6),
+                              ),
+                              suffixIcon: IconButton(
+                                onPressed:
+                                    () => setState(() => _obscure = !_obscure),
+                                icon: Icon(
+                                  _obscure
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                  color: const Color(0xFF0077B6),
+                                ),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            style: const TextStyle(color: Colors.black),
+                            validator: _validatePassword,
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submit,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF0077B6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 50,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child:
+                                  _isLoading
+                                      ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                      : const Text(
+                                        'Next',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            '--------------- OR ---------------',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white, fontSize: 14),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : () {},
+                                  icon: const Icon(
+                                    Icons.facebook,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    'Facebook',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF3b5998),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _isLoading ? null : () {},
-                                icon: const Icon(Icons.g_mobiledata, color: Colors.red),
-                                label: const Text('Google', style: TextStyle(color: Colors.black)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : () {},
+                                  icon: const Icon(
+                                    Icons.g_mobiledata,
+                                    color: Colors.red,
+                                  ),
+                                  label: const Text(
+                                    'Google',
+                                    style: TextStyle(color: Colors.black),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        const Text(
-                          'By signing up, you agree to our Terms & Services',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.black, fontSize: 12),
-                        ),
-                        const SizedBox(height: 10),
-                        TextButton(
-                          onPressed: _isLoading
-                              ? null
-                              : () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const SigninScreen()),
-                                  );
-                                },
-                          child: const Text(
-                            'Already have an account? Login',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 15),
+                          const Text(
+                            'By signing up, you agree to our Terms & Services',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.black, fontSize: 12),
+                          ),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed:
+                                _isLoading
+                                    ? null
+                                    : () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => const SigninScreen(),
+                                        ),
+                                      );
+                                    },
+                            child: const Text(
+                              'Already have an account? Login',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

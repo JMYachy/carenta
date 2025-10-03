@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class BuildercardListedcarmodel extends StatelessWidget {
+class AdminBuildercardListedcarmodel extends StatelessWidget {
   final String carName;
   final String brand;
   final String imageUrl;
@@ -9,7 +9,7 @@ class BuildercardListedcarmodel extends StatelessWidget {
   final String pricePerDay;
   final String currency; // e.g., "PHP" or "USD"
 
-  const BuildercardListedcarmodel({
+  const AdminBuildercardListedcarmodel({
     super.key,
     required this.carName,
     required this.brand,
@@ -39,8 +39,9 @@ class BuildercardListedcarmodel extends StatelessWidget {
     const gap12 = SizedBox(height: 12);
 
     return Semantics(
-      label: '$brand $carName, $seats seats, $transmission, '
-             '${_currencySymbol.isEmpty ? '' : _currencySymbol}$pricePerDay per day',
+      label:
+          '$brand $carName, $seats seats, $transmission, '
+          '${_currencySymbol.isEmpty ? '' : _currencySymbol}$pricePerDay per day',
       button: false,
       child: Container(
         margin: const EdgeInsets.all(10),
@@ -52,38 +53,27 @@ class BuildercardListedcarmodel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // Title row (❌ heart removed for admin)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        carName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        brand,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                Text(
+                  carName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const Icon(Icons.favorite_border, color: Colors.white70),
+                const SizedBox(height: 2),
+                Text(
+                  brand,
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
 
@@ -107,8 +97,11 @@ class BuildercardListedcarmodel extends StatelessWidget {
                     return Container(
                       color: const Color(0xFF0F284E),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.directions_car_filled,
-                          color: Colors.white24, size: 48),
+                      child: const Icon(
+                        Icons.directions_car_filled,
+                        color: Colors.white24,
+                        size: 48,
+                      ),
                     );
                   },
                 ),
@@ -130,7 +123,7 @@ class BuildercardListedcarmodel extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
                   ),
-                )
+                ),
               ],
             ),
           ],

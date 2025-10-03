@@ -18,20 +18,23 @@ try {
     // Count total cars
     $cars = $conn->query("SELECT COUNT(*) as total FROM cartbl")->fetch(PDO::FETCH_ASSOC);
 
-    // Count total bookings
-    $bookings = $conn->query("SELECT COUNT(*) as total FROM bookingtbl")->fetch(PDO::FETCH_ASSOC);
+    // Count total rentals (bookings)
+    $bookings = $conn->query("SELECT COUNT(*) as total FROM rentaltbl")->fetch(PDO::FETCH_ASSOC);
 
-    // Sum revenue
-    $revenue = $conn->query("SELECT IFNULL(SUM(total_amount),0) as total FROM bookingtbl WHERE status='completed'")
-                ->fetch(PDO::FETCH_ASSOC);
+    // Sum revenue from completed rentals
+    $revenue = $conn->query("
+        SELECT IFNULL(SUM(total_amount),0) as total 
+        FROM rentaltbl 
+        WHERE status = 'completed'
+    ")->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
         "status" => "success",
         "data" => [
-            "total_users" => intval($users['total']),
-            "total_cars" => intval($cars['total']),
+            "total_users"    => intval($users['total']),
+            "total_cars"     => intval($cars['total']),
             "total_bookings" => intval($bookings['total']),
-            "total_revenue" => floatval($revenue['total']),
+            "total_revenue"  => floatval($revenue['total']),
         ]
     ]);
 

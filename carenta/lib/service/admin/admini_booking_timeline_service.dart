@@ -1,9 +1,5 @@
-// lib/admin/home_screen/booking_time_line.dart
 import 'package:flutter/material.dart';
 import 'package:carenta/service/admin/admin_booking_service.dart';
-
-// ✅ file-level singleton (not static methods)
-const _bookingSvc = AdminBookingService();
 
 class BookingTimeline extends StatelessWidget {
   const BookingTimeline({super.key});
@@ -11,15 +7,16 @@ class BookingTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _bookingSvc.fetchTimeline(), // ✅ instance call
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+      future: AdminBookingService().fetchTimeline(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snap.hasError) {
-          return Center(child: Text("Error: ${snap.error}"));
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
         }
-        final bookings = snap.data ?? [];
+
+        final bookings = snapshot.data ?? [];
         if (bookings.isEmpty) {
           return const Center(child: Text("No bookings today."));
         }

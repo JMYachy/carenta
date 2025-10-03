@@ -1,6 +1,6 @@
 // lib/screen/user_booking_screen.dart
 import 'package:carenta/service/util_service/session_manager_service.dart';
-import 'package:carenta/widget/admin_booking_screen_widget/card_builder_booking_card.dart';
+import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/card_builder_booking_card.dart';
 import 'package:flutter/material.dart';
 import 'package:carenta/service/user/user_booking_service.dart';
 import 'package:carenta/main/splash_screen.dart';
@@ -39,9 +39,11 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
       if (res['success'] == true) {
         final id = res['data']?['userid'];
         if (id != null) {
+          final future = _load(); // ✅ run load once
+          if (!mounted) return;
           setState(() {
             _userId = id;
-            _future = _load();
+            _future = future;
           });
           return;
         }
@@ -52,7 +54,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
           MaterialPageRoute(builder: (_) => const SplashScreen()),
         );
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -63,7 +65,9 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _load() async {
-    if (_userId == null) throw Exception("No active session");
+    if (_userId == null) {
+      return []; // ✅ don’t throw, just return empty
+    }
 
     final status = _filters[_selected].status;
     final res = await _svc.fetchUserBookings(
@@ -86,8 +90,12 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
   }
 
   Future<void> _reload() async {
-    setState(() => _future = _load());
-    await _future;
+    final newFuture = _load(); // ✅ start async work outside setState
+    if (!mounted) return;
+    setState(() {
+      _future = newFuture; // ✅ synchronous assignment only
+    });
+    await newFuture; // ✅ wait outside
   }
 
   @override
@@ -95,9 +103,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     if (_userId == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -121,8 +127,9 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: scheme.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.06),
@@ -197,7 +204,7 @@ class _HeaderBar extends StatelessWidget {
           colors: [
             scheme.primary.withValues(alpha: 0.12),
             scheme.primary.withValues(alpha: 0.04),
-            Colors.transparent
+            Colors.transparent,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -207,26 +214,22 @@ class _HeaderBar extends StatelessWidget {
         bottom: false,
         child: Row(
           children: [
-            Icon(Icons.calendar_month_rounded,
-                color: scheme.primary, size: 32),
+            Icon(Icons.calendar_month_rounded, color: scheme.primary, size: 32),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 Text(
                   subtitle,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -241,8 +244,11 @@ class _FilterStrip extends StatelessWidget {
   final List<_FilterSpec> filters;
   final int selected;
   final ValueChanged<int> onSelect;
-  const _FilterStrip(
-      {required this.filters, required this.selected, required this.onSelect});
+  const _FilterStrip({
+    required this.filters,
+    required this.selected,
+    required this.onSelect,
+  });
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -276,10 +282,7 @@ class _CardContainer extends StatelessWidget {
   const _CardContainer({required this.child});
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: child,
-    );
+    return ClipRRect(borderRadius: BorderRadius.circular(16), child: child);
   }
 }
 
@@ -297,10 +300,9 @@ class _EmptyState extends StatelessWidget {
         Text(
           'No bookings yet',
           textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Text(
@@ -319,10 +321,11 @@ class _LoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-        child: Padding(
-      padding: EdgeInsets.only(top: 48),
-      child: CircularProgressIndicator(),
-    ));
+      child: Padding(
+        padding: EdgeInsets.only(top: 48),
+        child: CircularProgressIndicator(),
+      ),
+    );
   }
 }
 
@@ -342,10 +345,9 @@ class _ErrorState extends StatelessWidget {
         Text(
           message,
           textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(color: scheme.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: 12),
         Center(

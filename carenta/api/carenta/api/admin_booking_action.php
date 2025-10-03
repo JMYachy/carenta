@@ -9,7 +9,7 @@ ini_set('display_errors', '0');
 $host = "localhost";
 $user = "root";
 $pass = "";
-$db   = "carentadb"; // or "carenta_db"
+$db   = "carentadb";
 
 $conn = new mysqli($host, $user, $pass, $db);
 if ($conn->connect_error) {
@@ -44,19 +44,19 @@ $row = $res->fetch_assoc();
 $current = strtolower($row['status'] ?? '');
 $q->close();
 
-// enforce state machine: only pending → confirm/cancel
-if ($current !== 'pending') {
-  http_response_code(409);
-  echo json_encode(['ok' => false, 'error' => 'INVALID_STATE', 'message' => 'Only PENDING bookings can be changed']);
-  exit;
-}
-
 if ($action === 'confirm') {
+  // ✅ confirm only if pending
+  if ($current !== 'pending') {
+    http_response_code(409);
+    echo json_encode(['ok' => false, 'error' => 'INVALID_STATE', 'message' => 'Only PENDING bookings can be confirmed']);
+    exit;
+  }
+
   $stmt = $conn->prepare("
     UPDATE rentaltbl
        SET status = 'confirmed',
            approved_by = ?,
-           updatedAt = NOW()
+           updated_at = NOW()
      WHERE rentalid = ?
      LIMIT 1
   ");
@@ -71,12 +71,19 @@ if ($action === 'confirm') {
   $stmt->close();
 
 } else { // cancel
+  // ✅ allow cancel if pending, confirmed, or ongoing
+  if (!in_array($current, ['pending','confirmed','ongoing'])) {
+    http_response_code(409);
+    echo json_encode(['ok' => false, 'error' => 'INVALID_STATE', 'message' => "Booking cannot be cancelled because it is already $current"]);
+    exit;
+  }
+
   $stmt = $conn->prepare("
     UPDATE rentaltbl
        SET status = 'cancelled',
            cancellation_reason = ?,
            cancelled_by = 'admin',
-           updatedAt = NOW()
+           updated_at = NOW()
      WHERE rentalid = ?
      LIMIT 1
   ");

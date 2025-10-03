@@ -22,14 +22,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _usernameC = TextEditingController();
   final _addressC = TextEditingController();
   final _cityC = TextEditingController();
-  final _provinceC = TextEditingController();
+  final _stateC = TextEditingController();
   final _zipC = TextEditingController();
+  final _countryC = TextEditingController();
+  final _languageC = TextEditingController();
+  final _timezoneC = TextEditingController();
+
+  // password controllers
+  final _currentPwC = TextEditingController();
+  final _newPwC = TextEditingController();
+  final _confirmPwC = TextEditingController();
 
   DateTime? _birthdate;
   String? _gender;
+  bool _darkMode = false;
 
   bool _editing = false;
   bool _saving = false;
+  bool _changingPw = false;
   bool _filledOnce = false;
 
   late Future<_UserProfile> _future;
@@ -57,7 +67,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           );
         }
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -106,13 +116,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       phone: _phoneC.text.trim(),
       username: _usernameC.text.trim().isEmpty ? null : _usernameC.text.trim(),
       gender: _gender,
-      birthdate: _birthdate != null
-          ? DateFormat('yyyy-MM-dd').format(_birthdate!)
-          : null,
+      birthdate:
+          _birthdate != null
+              ? DateFormat('yyyy-MM-dd').format(_birthdate!)
+              : null,
       address: _addressC.text.trim().isEmpty ? null : _addressC.text.trim(),
       city: _cityC.text.trim().isEmpty ? null : _cityC.text.trim(),
-      province: _provinceC.text.trim().isEmpty ? null : _provinceC.text.trim(),
+      province: _stateC.text.trim().isEmpty ? null : _stateC.text.trim(),
       zipCode: _zipC.text.trim().isEmpty ? null : _zipC.text.trim(),
+      country: _countryC.text.trim().isEmpty ? null : _countryC.text.trim(),
+      language: _languageC.text.trim().isEmpty ? null : _languageC.text.trim(),
+      timezone: _timezoneC.text.trim().isEmpty ? null : _timezoneC.text.trim(),
+      darkMode: _darkMode,
     );
 
     if (!mounted) return;
@@ -131,21 +146,66 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  Future<void> _changePassword() async {
+    if (_changingPw || _userId == null) return;
+
+    final current = _currentPwC.text.trim();
+    final newPw = _newPwC.text.trim();
+    final confirmPw = _confirmPwC.text.trim();
+
+    if (newPw.isEmpty || confirmPw.isEmpty || current.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Fill all password fields')));
+      return;
+    }
+    if (newPw != confirmPw) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('New passwords do not match')),
+      );
+      return;
+    }
+
+    setState(() => _changingPw = true);
+    final res = await _svc.changePassword(
+      userId: _userId!,
+      currentPassword: current,
+      newPassword: newPw,
+    );
+    setState(() => _changingPw = false);
+
+    final ok = res['status'] == 'success';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(res['message'] ?? (ok ? 'Password updated' : 'Failed')),
+      ),
+    );
+
+    if (ok) {
+      _currentPwC.clear();
+      _newPwC.clear();
+      _confirmPwC.clear();
+    }
+  }
+
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          FilledButton.tonal(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Logout')),
-        ],
-      ),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Logout'),
+            content: const Text('Are you sure you want to log out?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton.tonal(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Logout'),
+              ),
+            ],
+          ),
     );
     if (confirm != true) return;
 
@@ -166,8 +226,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _usernameC.dispose();
     _addressC.dispose();
     _cityC.dispose();
-    _provinceC.dispose();
+    _stateC.dispose();
     _zipC.dispose();
+    _countryC.dispose();
+    _languageC.dispose();
+    _timezoneC.dispose();
+    _currentPwC.dispose();
+    _newPwC.dispose();
+    _confirmPwC.dispose();
     super.dispose();
   }
 
@@ -176,9 +242,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final cs = Theme.of(context).colorScheme;
 
     if (_userId == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -199,23 +263,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snap.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 48),
-                  const SizedBox(height: 8),
-                  Text(snap.error.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                      onPressed: () =>
-                          setState(() => _future = _load()),
-                      child: const Text("Retry")),
-                ],
-              ),
-            );
+            return Center(child: Text("Error: ${snap.error}"));
           }
 
           final profile = snap.data!;
@@ -228,49 +276,180 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             _usernameC.text = profile.username;
             _addressC.text = profile.address ?? '';
             _cityC.text = profile.city ?? '';
-            _provinceC.text = profile.province ?? '';
+            _stateC.text = profile.state ?? '';
             _zipC.text = profile.zipCode ?? '';
-            _gender =
-                profile.gender?.isEmpty == true ? null : profile.gender;
+            _countryC.text = profile.country ?? '';
+            _languageC.text = profile.language ?? '';
+            _timezoneC.text = profile.timezone ?? '';
+            _gender = profile.gender;
             _birthdate = profile.birthdate;
+            _darkMode = profile.darkMode;
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 _Header(profile: profile),
                 const SizedBox(height: 16),
 
-                // Example: Personal info
+                // Profile card
                 Card(
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Column(
                     children: [
+                      _buildEditable("First Name", _firstC),
+                      _buildEditable("Last Name", _lastC),
+                      _buildEditable("Username", _usernameC),
+                      _buildEditable(
+                        "Email",
+                        _emailC,
+                        type: TextInputType.emailAddress,
+                      ),
+                      _buildEditable(
+                        "Phone",
+                        _phoneC,
+                        type: TextInputType.phone,
+                      ),
+                      _buildEditable("Address", _addressC),
+                      _buildEditable("City", _cityC),
+                      _buildEditable("State/Province", _stateC),
+                      _buildEditable("Postal Code", _zipC),
+                      _buildEditable("Country", _countryC),
                       ListTile(
-                        leading: Icon(Icons.email, color: cs.primary),
-                        title: Text(profile.email),
+                        title: const Text("Gender"),
+                        trailing: DropdownButton<String>(
+                          value: _gender,
+                          hint: const Text("Select"),
+                          items: const [
+                            DropdownMenuItem(
+                              value: "Male",
+                              child: Text("Male"),
+                            ),
+                            DropdownMenuItem(
+                              value: "Female",
+                              child: Text("Female"),
+                            ),
+                            DropdownMenuItem(
+                              value: "Other",
+                              child: Text("Other"),
+                            ),
+                          ],
+                          onChanged:
+                              _editing
+                                  ? (v) => setState(() => _gender = v)
+                                  : null,
+                        ),
                       ),
                       ListTile(
-                        leading: Icon(Icons.phone, color: cs.primary),
-                        title: Text(profile.phone),
+                        title: const Text("Birthdate"),
+                        subtitle: Text(_fmtDate(_birthdate)),
+                        trailing:
+                            _editing
+                                ? IconButton(
+                                  icon: const Icon(Icons.calendar_today),
+                                  onPressed: _pickBirthdate,
+                                )
+                                : null,
                       ),
+                      SwitchListTile(
+                        title: const Text("Dark Mode"),
+                        value: _darkMode,
+                        onChanged:
+                            _editing
+                                ? (v) => setState(() => _darkMode = v)
+                                : null,
+                      ),
+                      _buildEditable("Language", _languageC),
+                      _buildEditable("Timezone", _timezoneC),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+
+                // Change password card
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Change Password",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _PasswordField(
+                          controller: _currentPwC,
+                          label: "Current Password",
+                          icon: Icons.lock_outline,
+                        ),
+                        const SizedBox(height: 12),
+                        _PasswordField(
+                          controller: _newPwC,
+                          label: "New Password",
+                          icon: Icons.lock_reset,
+                        ),
+                        const SizedBox(height: 12),
+                        _PasswordField(
+                          controller: _confirmPwC,
+                          label: "Confirm New Password",
+                          icon: Icons.lock_person,
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            icon:
+                                _changingPw
+                                    ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                    : const Icon(Icons.save),
+                            label: Text(
+                              _changingPw ? "Updating..." : "Update Password",
+                            ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _changingPw ? null : _changePassword,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
                 if (_editing)
                   FilledButton.icon(
                     onPressed: _saving ? null : _saveProfile,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.save),
+                    icon:
+                        _saving
+                            ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                            : const Icon(Icons.save),
                     label: const Text('Save changes'),
                   ),
                 const SizedBox(height: 12),
@@ -287,10 +466,58 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
   }
+
+  Widget _buildEditable(
+    String label,
+    TextEditingController c, {
+    TextInputType type = TextInputType.text,
+  }) {
+    return ListTile(
+      title: Text(label),
+      subtitle: TextField(controller: c, enabled: _editing, keyboardType: type),
+    );
+  }
+}
+
+/* ==================== Custom PasswordField ==================== */
+class _PasswordField extends StatefulWidget {
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  const _PasswordField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+  });
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  bool _obscure = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: widget.controller,
+      obscureText: _obscure,
+      decoration: InputDecoration(
+        labelText: widget.label,
+        prefixIcon: Icon(widget.icon),
+        suffixIcon: IconButton(
+          icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility),
+          onPressed: () => setState(() => _obscure = !_obscure),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade100,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
 }
 
 /* ==================== Model ==================== */
-
 class _UserProfile {
   final int userId;
   final String username;
@@ -298,15 +525,17 @@ class _UserProfile {
   final String lastName;
   final String email;
   final String phone;
-  final String accountType;
-  final String? status;
   final String? address;
   final String? city;
-  final String? province;
+  final String? state;
   final String? zipCode;
+  final String? country;
   final String? gender;
   final DateTime? birthdate;
   final String? avatarUrl;
+  final String? language;
+  final String? timezone;
+  final bool darkMode;
 
   _UserProfile({
     required this.userId,
@@ -315,15 +544,17 @@ class _UserProfile {
     required this.lastName,
     required this.email,
     required this.phone,
-    required this.accountType,
-    required this.status,
-    required this.address,
-    required this.city,
-    required this.province,
-    required this.zipCode,
-    required this.gender,
-    required this.birthdate,
-    required this.avatarUrl,
+    this.address,
+    this.city,
+    this.state,
+    this.zipCode,
+    this.country,
+    this.gender,
+    this.birthdate,
+    this.avatarUrl,
+    this.language,
+    this.timezone,
+    this.darkMode = false,
   });
 
   static DateTime? _toDate(dynamic v) {
@@ -343,15 +574,17 @@ class _UserProfile {
       lastName: m['last_name']?.toString() ?? '',
       email: m['email']?.toString() ?? '',
       phone: m['phone_number']?.toString() ?? '',
-      accountType: m['account_type']?.toString() ?? m['role']?.toString() ?? '',
-      status: m['status']?.toString(),
-      address: m['address']?.toString(),
+      address: m['street_address']?.toString(),
       city: m['city']?.toString(),
-      province: m['province']?.toString(),
-      zipCode: m['zip_code']?.toString(),
+      state: m['state']?.toString(),
+      zipCode: m['postal_code']?.toString(),
+      country: m['country']?.toString(),
       gender: m['gender']?.toString(),
       birthdate: _toDate(m['birthdate']),
       avatarUrl: m['profile_picture']?.toString(),
+      language: m['language']?.toString(),
+      timezone: m['timezone']?.toString(),
+      darkMode: (m['dark_mode']?.toString() == '1'),
     );
   }
 
@@ -370,21 +603,24 @@ class _Header extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         radius: 32,
-        backgroundImage: (profile.avatarUrl != null &&
-                profile.avatarUrl!.isNotEmpty)
-            ? NetworkImage(profile.avatarUrl!)
-            : null,
-        child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
-            ? Text(
-                profile.fullName.isNotEmpty
-                    ? profile.fullName[0].toUpperCase()
-                    : 'U',
-                style: const TextStyle(fontSize: 24),
-              )
-            : null,
+        backgroundImage:
+            (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
+                ? NetworkImage(profile.avatarUrl!)
+                : null,
+        child:
+            (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
+                ? Text(
+                  profile.fullName.isNotEmpty
+                      ? profile.fullName[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(fontSize: 24),
+                )
+                : null,
       ),
-      title: Text(profile.fullName,
-          style: Theme.of(context).textTheme.titleLarge),
+      title: Text(
+        profile.fullName,
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
       subtitle: Text(profile.email),
     );
   }

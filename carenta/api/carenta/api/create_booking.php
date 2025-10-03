@@ -36,12 +36,12 @@ try {
     $carid            = isset($input['carid']) ? (int)$input['carid'] : 0;
     $userid           = isset($input['userid']) ? (int)$input['userid'] : 0;
     $start_date       = trim((string)($input['start_date'] ?? ''));
-    $start_time       = trim((string)($input['start_time'] ?? '00:00')); // default if missing
+    $start_time       = trim((string)($input['start_time'] ?? '00:00'));
     $end_date         = trim((string)($input['end_date'] ?? ''));
-    $end_time         = trim((string)($input['end_time'] ?? '00:00'));   // default if missing
+    $end_time         = trim((string)($input['end_time'] ?? '00:00'));
     $pickup_location  = trim((string)($input['pickup_location'] ?? ''));
     $dropoff_location = trim((string)($input['dropoff_location'] ?? ''));
-    $client_total     = isset($input['total_amount']) ? (float)$input['total_amount'] : null; // optional, fallback
+    $client_total     = isset($input['total_amount']) ? (float)$input['total_amount'] : null;
 
     if ($carid <= 0 || $userid <= 0 || $start_date === '' || $end_date === '' ||
         $pickup_location === '' || $dropoff_location === '') {
@@ -74,7 +74,7 @@ try {
         exit;
     }
 
-    // --------- Transaction to avoid race conditions ----------
+    // --------- Transaction ----------
     $conn->begin_transaction();
 
     // Ensure car exists
@@ -91,8 +91,7 @@ try {
         exit;
     }
 
-    // Prevent overlaps: any rental that overlaps [start_date, end_date]
-    // NOT (new_end < existing_start OR new_start > existing_end)
+    // Prevent overlaps
     $stmt = $conn->prepare("
         SELECT 1
         FROM rentaltbl
@@ -108,22 +107,22 @@ try {
 
     if ($overlap) {
         $conn->rollback();
-        http_response_code(409); // conflict
+        http_response_code(409);
         echo json_encode(['success' => false, 'message' => 'Car is not available for the selected dates']);
         exit;
     }
 
-    // Compute total on server if possible (secure)
+    // Compute total on server if possible
     $stmt = $conn->prepare("
         SELECT t.daily_rate, t.currency
         FROM pricetbl t
         JOIN (
-            SELECT carid, MAX(updatedAt) AS latest
+            SELECT carid, MAX(updated_at) AS latest
             FROM pricetbl
             WHERE (valid_from IS NULL OR valid_from <= CURDATE())
               AND (valid_to   IS NULL OR valid_to   >= CURDATE())
               AND carid = ?
-        ) u ON u.carid = t.carid AND u.latest = t.updatedAt
+        ) u ON u.carid = t.carid AND u.latest = t.updated_at
         LIMIT 1
     ");
     $stmt->bind_param("i", $carid);
@@ -152,7 +151,7 @@ try {
         $total_amount = (float)$client_total;
     }
 
-    // Insert booking (status = pending until payment confirmed)
+    // Insert booking
     $stmt = $conn->prepare("
         INSERT INTO rentaltbl
             (carid, userid, start_date, start_time, end_date, end_time, total_amount, pickup_location, dropoff_location, status)
@@ -195,11 +194,15 @@ try {
     ], JSON_PRETTY_PRINT);
 
 } catch (Throwable $e) {
-    if (isset($conn) && $conn->errno === 0) {
+    if (isset($conn) && $conn instanceof mysqli) {
         try { $conn->rollback(); } catch (Throwable $ignored) {}
     }
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Server error', 'error' => $e->getMessage()]);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Server error',
+        'error'   => $e->getMessage()
+    ]);
 } finally {
     if (isset($conn) && $conn instanceof mysqli) { $conn->close(); }
 }

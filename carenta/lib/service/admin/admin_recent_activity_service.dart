@@ -1,9 +1,5 @@
-// lib/admin/home_screen/recent_activity_feed.dart
 import 'package:flutter/material.dart';
 import 'package:carenta/service/admin/admin_booking_service.dart';
-
-// ✅ file-level singleton (not static methods)
-const _bookingSvc = AdminBookingService();
 
 class ActivityFeed extends StatelessWidget {
   const ActivityFeed({super.key});
@@ -11,15 +7,16 @@ class ActivityFeed extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _bookingSvc.fetchRecentActivity(), // ✅ instance call
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+      future: AdminBookingService().fetchRecentActivity(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snap.hasError) {
-          return Center(child: Text("Error: ${snap.error}"));
+        if (snapshot.hasError) {
+          return Center(child: Text("Error: ${snapshot.error}"));
         }
-        final activities = snap.data ?? [];
+
+        final activities = snapshot.data ?? [];
         if (activities.isEmpty) {
           return const Center(child: Text("No recent activity."));
         }

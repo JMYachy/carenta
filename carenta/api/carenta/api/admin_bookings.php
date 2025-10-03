@@ -33,7 +33,6 @@ if ($status !== null && !in_array($status, $allowedStatus, true)) {
 }
 
 // ---- auto-update statuses ----
-// Move CONFIRMED → ONGOING if current datetime is within range
 $conn->query("
   UPDATE rentaltbl
   SET status = 'ongoing'
@@ -42,7 +41,6 @@ $conn->query("
     AND NOW() <= STR_TO_DATE(CONCAT(end_date, ' ', IFNULL(end_time, '23:59:59')), '%Y-%m-%d %H:%i:%s')
 ");
 
-// Move ONGOING → COMPLETED if current datetime is past end datetime
 $conn->query("
   UPDATE rentaltbl
   SET status = 'completed'
@@ -56,7 +54,13 @@ SELECT
   r.rentalid, r.userid, r.carid, r.rental_type,
   r.start_date, r.start_time, r.end_date, r.end_time,
   r.pickup_location, r.dropoff_location, r.total_amount,
-  r.status, r.createdAt AS rental_created_at, r.updatedAt AS rental_updated_at,
+  r.status,
+  r.cancellation_reason,
+  r.cancelled_by,
+  r.cancelled_at,
+  r.admin_notes,
+  r.created_at AS rental_created_at,
+  r.updated_at AS rental_updated_at,
   c.manufacturer, c.model, c.license_plate, c.withDriver,
   m.thumbnail_url, m.media_url
 FROM rentaltbl r

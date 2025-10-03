@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:carenta/admin/admin_booking_screen.dart';
 import 'package:carenta/admin/admin_car_screen.dart';
 import 'package:carenta/admin/home_screen/admin_homescreen.dart';
@@ -19,12 +18,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? _sessionData; // store session info
   bool _loadingSession = true;
 
-  final List<String> _titles = [
-    'Home',
-    'Cars',
-    'Bookings',
-    'Profile',
-  ];
+  final List<String> _titles = ['Home', 'Cars', 'Bookings', 'Profile'];
 
   @override
   void initState() {
@@ -41,7 +35,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _loadingSession = false;
         });
       } else {
-        // No active session → back to login screen
         if (mounted) {
           Navigator.pushReplacementNamed(context, "/login");
         }
@@ -70,13 +63,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     if (_loadingSession) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final List<Widget> screens = [
-      _buildEmptyHome(),
+      _buildLiveHome(), // ✅ now uses live polling
       _buildCarsScreen(),
       _buildBookingsScreen(),
       _buildProfileScreen(),
@@ -151,28 +142,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  // inside AdminDashboardState
-Widget _buildEmptyHome() {
-  return FutureBuilder<Map<String, dynamic>>(
-    future: AdminDashboardService.fetchStats(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (snapshot.hasError) {
-        return Center(child: Text("Error: ${snapshot.error}"));
-      }
+  /// ✅ Live home screen with StreamBuilder
+  Widget _buildLiveHome() {
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: AdminDashboardStatsService.pollStats(
+        interval: const Duration(seconds: 5),
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-      final data = snapshot.data?["data"] ?? {};
-      return AdminHomeScreen(
-        totalUsers: data["total_users"] ?? 0,
-        totalCars: data["total_cars"] ?? 0,
-        totalBookings: data["total_bookings"] ?? 0,
-        totalRevenue: (data["total_revenue"] ?? 0).toDouble(),
-      );
-    },
-  );
-}
+        final stats = snapshot.data!;
+        if (stats["success"] != true) {
+          return Center(child: Text("Error: ${stats['message']}"));
+        }
+
+        final data = stats["data"] ?? {};
+        return AdminHomeScreen(
+          totalUsers: data["total_users"] ?? 0,
+          totalCars: data["total_cars"] ?? 0,
+          totalBookings: data["total_bookings"] ?? 0,
+          totalRevenue: (data["total_revenue"] ?? 0).toDouble(),
+        );
+      },
+    );
+  }
 
   Widget _buildCarsScreen() => const AdminCarScreen();
 
