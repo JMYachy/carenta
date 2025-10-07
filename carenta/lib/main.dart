@@ -1,9 +1,14 @@
 import 'package:carenta/main/splash_screen.dart';
 import 'package:carenta/utils/session_manager.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform, // ✅ important
+  );
   await SessionManager.instance.init();
   runApp(const MyApp());
 }

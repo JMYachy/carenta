@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:carenta/service/config/service_base_url.dart';
 import 'package:http/http.dart' as http;
 
 class SignupService {
-  static const String _url = 'http://10.0.2.2/carenta/api/signup.php';
-  // Use your PC's LAN IP on a real device, e.g. http://192.168.x.x/carenta/api/signup.php
+  static final String _endpoint = ServiceBaseUrl.endpoint("signup.php");
 
   static Future<Map<String, dynamic>> signupUser(
     String password,
     String phoneNumber,
   ) async {
     try {
-      final uri = Uri.parse(_url);
+      final uri = Uri.parse(_endpoint);
       final res = await http
           .post(
             uri,
@@ -40,9 +40,10 @@ class SignupService {
       } else {
         return {
           'status': 'error',
-          'message': message.isNotEmpty
-              ? message
-              : 'Server returned ${res.statusCode}',
+          'message':
+              message.isNotEmpty
+                  ? message
+                  : 'Server returned ${res.statusCode}',
         };
       }
     } on TimeoutException {

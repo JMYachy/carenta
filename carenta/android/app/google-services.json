@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "17025094425",
+    "project_id": "carenta-auth",
+    "storage_bucket": "carenta-auth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:17025094425:android:c58a0e5ea50e518c3f6b88",
+        "android_client_info": {
+          "package_name": "com.example.carenta"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "17025094425-b2latng87jhrkdpevume9au2okrojk0a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.carenta",
+            "certificate_hash": "8cdc4c88c76fd8d6eed1313d97d590656d07a595"
+          }
+        },
+        {
+          "client_id": "17025094425-jukb9nfrfc2rpqu95d857raqs2h47oi7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAimYn4FWCBrqRm5NpUOMIPaNMg0uObCAA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "17025094425-jukb9nfrfc2rpqu95d857raqs2h47oi7.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "17025094425-2nubc3uvpgf80lrq60upbemi43s4u7mj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.carenta"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

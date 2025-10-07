@@ -1,35 +1,51 @@
 <?php
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
+require_once 'connection_service.php';
 
 header('Content-Type: application/json; charset=UTF-8');
-header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit();
 }
 
-$servername = "localhost";
-$username   = "root";
-$password   = "";
-$dbname     = "carentadb";
+/**
+ * Normalize phone number into consistent E.164 format.
+ * - Converts local PH (09...) into +63 format
+ * - Keeps valid international numbers (+1..., +44..., etc.)
+ * - Rejects clearly invalid inputs
+ */
+function normalizePhone($phone) {
+    $phone = trim($phone);
+    $phone = preg_replace('/\s+/', '', $phone);        // remove spaces
+    $phone = preg_replace('/[^0-9+]/', '', $phone);    // keep digits and +
 
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    // Case 1: Local Philippine number (starts with 09)
+    if (preg_match('/^09\d{9}$/', $phone)) {
+        return '+63' . substr($phone, 1); // convert to +63xxxxxxxxxx
+    }
+
+    // Case 2: No + but starts with country code (e.g., 639, 1415...)
+    if (preg_match('/^\d{10,15}$/', $phone)) {
+        return '+' . $phone;
+    }
+
+    // Case 3: Already in + format
+    if (preg_match('/^\+\d{10,15}$/', $phone)) {
+        return $phone;
+    }
+
+    // Invalid format
+    return false;
+}
 
 try {
-    $conn = new mysqli($servername, $username, $password, $dbname);
-    $conn->set_charset("utf8mb4");
-
     if ($_SERVER["REQUEST_METHOD"] !== "POST") {
         echo json_encode(['status' => 'error', 'message' => 'Invalid request method']);
         exit();
     }
 
-    // Accept application/x-www-form-urlencoded (Flutter default) or JSON
+    // Accept both form-data and raw JSON
     $input = $_POST;
     if (empty($input)) {
         $raw = file_get_contents('php://input');
@@ -37,25 +53,27 @@ try {
         if (is_array($json)) $input = $json;
     }
 
-    $phone = trim((string)($input['phone_number'] ?? ''));
-    $pass  = (string)($input['bcrypt'] ?? ''); // name kept for backward-compat, but it's the plain password
+    $phone_raw = trim((string)($input['phone_number'] ?? ''));
+    $pass  = (string)($input['bcrypt'] ?? '');
 
-    if ($phone === '' || $pass === '') {
+    if ($phone_raw === '' || $pass === '') {
         echo json_encode(['status' => 'error', 'message' => 'Missing fields']);
         exit();
     }
 
-    // Optional: basic validation
     if (strlen($pass) < 6) {
         echo json_encode(['status' => 'error', 'message' => 'Password must be at least 6 characters']);
         exit();
     }
-    if (strlen($phone) > 20) {
-        echo json_encode(['status' => 'error', 'message' => 'Phone number is too long']);
+
+    // Normalize and validate phone
+    $phone = normalizePhone($phone_raw);
+    if (!$phone) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid phone number format. Use +countrycodeXXXXXXXXXX or 09XXXXXXXXX']);
         exit();
     }
 
-    // Check if phone already exists (since phone_number isn’t UNIQUE by default)
+    // Check if phone already exists (normalized)
     $check = $conn->prepare("SELECT userid FROM usertbl WHERE phone_number = ? LIMIT 1");
     $check->bind_param("s", $phone);
     $check->execute();
@@ -67,26 +85,25 @@ try {
         exit();
     }
 
-    // Hash password
+    // Hash password and insert new user
     $hashed_pass = password_hash($pass, PASSWORD_DEFAULT);
-
-    // Insert
     $stmt = $conn->prepare("INSERT INTO usertbl (phone_number, bcrypt) VALUES (?, ?)");
     $stmt->bind_param("ss", $phone, $hashed_pass);
     $stmt->execute();
-    $newId = $stmt->insert_id;
-    $stmt->close();
 
     echo json_encode([
         'status'  => 'success',
         'message' => 'Signup successful',
-        'userid'  => (int)$newId,
+        'userid'  => (int)$stmt->insert_id,
         'phone'   => $phone
     ]);
 
+    $stmt->close();
+
 } catch (Throwable $e) {
     http_response_code(500);
-    echo json_encode(['status' => 'error', 'message' => 'Server error']);
+    echo json_encode(['status' => 'error', 'message' => 'Server error', 'error' => $e->getMessage()]);
 } finally {
     if (isset($conn) && $conn instanceof mysqli) $conn->close();
 }
+?>

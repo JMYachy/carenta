@@ -30,7 +30,10 @@ class SessionService {
   }
 
   /// Login (email OR username accepted)
-  static Future<Map<String, dynamic>> login(String loginInput, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String loginInput,
+    String password,
+  ) async {
     final resp = await _client.post(
       Uri.parse(_url),
       headers: _headers(json: true),

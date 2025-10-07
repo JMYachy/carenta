@@ -1,11 +1,15 @@
-// lib/service/auth/login_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:carenta/utils/session_manager.dart';
+import 'package:carenta/service/config/service_base_url.dart';
 
 class LoginService {
+  // Instead of hardcoding, use the global base URL
   final String endpoint;
-  const LoginService({this.endpoint = 'http://10.0.2.2/carenta/api/login.php'});
+
+  const LoginService({
+    this.endpoint = '', // default empty — will be auto-resolved below
+  });
 
   // Normalize any Map to Map<String, dynamic>
   Map<String, dynamic> _toMap(dynamic v) {
@@ -16,13 +20,23 @@ class LoginService {
     return <String, dynamic>{};
   }
 
-  int? _toInt(dynamic v) => v == null ? null : (v is int ? v : int.tryParse('$v'));
+  int? _toInt(dynamic v) =>
+      v == null ? null : (v is int ? v : int.tryParse('$v'));
 
-  Future<Map<String, dynamic>> login(String loginInput, String password,
-      {Duration timeout = const Duration(seconds: 15)}) async {
+  Future<Map<String, dynamic>> login(
+    String loginInput,
+    String password, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final String url =
+        endpoint.isNotEmpty ? endpoint : ServiceBaseUrl.endpoint("login.php");
+
     try {
       final res = await http
-          .post(Uri.parse(endpoint), body: {'username': loginInput, 'password': password})
+          .post(
+            Uri.parse(url),
+            body: {'username': loginInput, 'password': password},
+          )
           .timeout(timeout);
 
       if (res.statusCode != 200) {
@@ -35,8 +49,9 @@ class LoginService {
       }
 
       final decoded = jsonDecode(raw);
-      final root = _toMap(decoded);                // <-- cast safely
+      final root = _toMap(decoded);
       final ok = root['ok'] == true || root['status'] == 'success';
+
       if (!ok) {
         return {
           "success": false,
@@ -44,13 +59,14 @@ class LoginService {
         };
       }
 
-      final data = _toMap(root['data']);           // <-- cast safely
-      final src = data.isNotEmpty ? data : root;   // accept either shape
+      final data = _toMap(root['data']);
+      final src = data.isNotEmpty ? data : root;
 
-      final userId  = _toInt(src['user_id']);
+      final userId = _toInt(src['user_id']);
       final adminId = _toInt(src['admin_id']);
       final username = (src['username'] ?? loginInput).toString();
-      final role = (src['role'] ?? (adminId != null ? 'admin' : 'user')).toString();
+      final role =
+          (src['role'] ?? (adminId != null ? 'admin' : 'user')).toString();
       final accountType = src['account_type']?.toString();
       final email = src['email']?.toString();
       final avatar = src['profile_picture']?.toString();

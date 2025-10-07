@@ -1,5 +1,7 @@
+import 'package:carenta/main/otp_vertification_screen.dart';
 import 'package:carenta/main/signin_screen.dart';
-import 'package:carenta/service/signup_service.dart';
+import 'package:carenta/service/util_service/firebase_otp_service.dart';
+import 'package:carenta/service/util_service/google_auth_service.dart';
 import 'package:flutter/material.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -27,7 +29,6 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _validatePhone(String? value) {
     final v = (value ?? '').trim();
     if (v.isEmpty) return 'Phone number is required';
-    // allow +, spaces, dashes; validate on digits count (>=10 typical, PH is 11 like 09xxxxxxxxx)
     final digits = v.replaceAll(RegExp(r'\D'), '');
     if (digits.length < 10 || digits.length > 15) {
       return 'Enter a valid phone number';
@@ -42,6 +43,83 @@ class _SignupScreenState extends State<SignupScreen> {
     return null;
   }
 
+  Future<void> _googleSignUp() async {
+    setState(() => _isLoading = true);
+
+    final googleUser = await GoogleAuthService().signInWithGoogle();
+
+    setState(() => _isLoading = false);
+
+    if (googleUser != null) {
+      final email = googleUser.email;
+      final name = googleUser.displayName ?? "User";
+
+      // Prompt user to enter phone number for OTP verification
+      final TextEditingController phoneCtrl = TextEditingController();
+      await showDialog(
+        context: context,
+        builder:
+            (_) => AlertDialog(
+              title: const Text("Phone Verification"),
+              content: TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: "Enter your phone number (e.g., +639XXXXXXXXX)",
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed:
+                      () => Navigator.pop(context, phoneCtrl.text.trim()),
+                  child: const Text("Continue"),
+                ),
+              ],
+            ),
+      ).then((phone) async {
+        if (phone == null || phone.isEmpty) return;
+
+        // Start OTP process
+        final otpService = FirebaseOTPService();
+        otpService.sendOTP(
+          phone,
+          (verificationId) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('📩 OTP sent to $phone')));
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder:
+                    (_) => OTPVerificationScreen(
+                      verificationId: verificationId,
+                      phone: phone,
+                      password:
+                          "google_auth_${googleUser.uid}", // pseudo password
+                    ),
+              ),
+            );
+          },
+          (error) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('❌ $error')));
+          },
+        );
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ Google Sign-In cancelled')),
+      );
+    }
+  }
+
+  // 🔹 This function now triggers OTP sending
   Future<void> _submit() async {
     if (_isLoading) return;
     final formOK = _formKey.currentState?.validate() ?? false;
@@ -50,32 +128,47 @@ class _SignupScreenState extends State<SignupScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
 
-    final phone = _phoneController.text.trim();
-    final password = _passwordController.text;
+    final rawPhone = _phoneController.text.trim();
+    final password = _passwordController.text.trim();
 
-    final res = await SignupService.signupUser(password, phone);
+    // ✅ Convert PH format 09xxxxxxxxx → +639xxxxxxxxx
+    String phone =
+        rawPhone.startsWith('+')
+            ? rawPhone
+            : rawPhone.startsWith('0')
+            ? '+63${rawPhone.substring(1)}'
+            : rawPhone;
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+    final otpService = FirebaseOTPService();
 
-    final status = (res['status'] ?? '').toString();
-    final message = (res['message'] ?? 'Something went wrong').toString();
+    otpService.sendOTP(
+      phone,
+      (verificationId) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('📩 OTP sent to $phone')));
 
-    if (status == 'success') {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('✅ $message')));
-      // Navigate to Sign in (replace so user can’t go back)
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SigninScreen()),
-      );
-    } else {
-      // Show server-provided error or generic fallback
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('⚠️ $message')));
-    }
+        // ✅ Navigate to OTP Verification Screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => OTPVerificationScreen(
+                  verificationId: verificationId,
+                  phone: phone,
+                  password: password,
+                ),
+          ),
+        );
+      },
+      (errorMessage) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('❌ $errorMessage')));
+      },
+    );
   }
 
   @override
@@ -116,7 +209,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: Form(
                     key: _formKey,
                     child: SingleChildScrollView(
-                      // ✅ added here
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -197,7 +289,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                         ),
                                       )
                                       : const Text(
-                                        'Next',
+                                        'Verify',
                                         style: TextStyle(
                                           fontSize: 18,
                                           color: Colors.black,
@@ -240,7 +332,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: ElevatedButton.icon(
-                                  onPressed: _isLoading ? null : () {},
+                                  onPressed: _isLoading ? null : _googleSignUp,
                                   icon: const Icon(
                                     Icons.g_mobiledata,
                                     color: Colors.red,

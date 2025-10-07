@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Oct 03, 2025 at 09:34 AM
+-- Generation Time: Oct 07, 2025 at 05:48 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -343,7 +343,8 @@ CREATE TABLE `usertbl` (
 
 INSERT INTO `usertbl` (`userid`, `username`, `email`, `bcrypt`, `first_name`, `last_name`, `gender`, `birthdate`, `phone_number`, `profile_picture`, `street_address`, `city`, `state`, `postal_code`, `country`, `role`, `status`, `is_verified`, `language`, `timezone`, `dark_mode`, `last_login`, `last_ip_address`, `login_attempts`, `two_factor_enabled`, `created_at`, `updated_at`) VALUES
 (5, 'john', 'john@gmail.com', '$2y$10$A5L9JN9VXkY4vurLXKXMROOk2l4s0sAmIRTyFu.x4gZdLLwE0StZe', 'John Marc', 'Goite', 'Male', '2001-11-01', '09275267118', NULL, 'Banate', 'Malungon', 'Sarangani', '9503', 'Philippines', 'user', 'active', 0, 'en', 'UTC', 0, '2025-09-29 15:21:24', '127.0.0.1', 0, 0, '2025-09-28 16:47:15', '2025-09-29 07:21:24'),
-(6, 'francis', 'francis@gmail.com', '$2y$10$GCupXShyWzCxqRJG/zeJGOjh1cAdVs9MgVbcl/DoT1..fFB/6WoMe', 'francis Lorenzo', 'Cagaoan', 'Male', '2004-09-30', '09700923983', NULL, 'Gensan', 'Gensan', 'South Cotabato', '9500', 'Philippines', 'user', 'active', 0, 'en', 'UTC', 0, '2025-09-30 14:59:08', '127.0.0.1', 0, 0, '2025-09-30 04:41:40', '2025-09-30 06:59:08');
+(6, 'francis', 'francis@gmail.com', '$2y$10$GCupXShyWzCxqRJG/zeJGOjh1cAdVs9MgVbcl/DoT1..fFB/6WoMe', 'francis Lorenzo', 'Cagaoan', 'Male', '2004-09-30', '09700923983', NULL, 'Gensan', 'Gensan', 'South Cotabato', '9500', 'Philippines', 'user', 'active', 0, 'en', 'UTC', 0, '2025-09-30 14:59:08', '127.0.0.1', 0, 0, '2025-09-30 04:41:40', '2025-09-30 06:59:08'),
+(8, NULL, NULL, '$2y$10$eGa3/o3QyOA5Fe9Pj6BSzezNE0oVRjh6g1BgcmZcW47tPVV3tI2lm', NULL, NULL, NULL, NULL, '+639987654321', NULL, NULL, NULL, NULL, NULL, NULL, 'user', 'active', 0, 'en', 'UTC', 0, '2025-10-06 15:49:42', '127.0.0.1', 0, 0, '2025-10-06 07:46:23', '2025-10-06 07:49:42');
 
 --
 -- Indexes for dumped tables
@@ -495,7 +496,7 @@ ALTER TABLE `rentaltbl`
 -- AUTO_INCREMENT for table `usertbl`
 --
 ALTER TABLE `usertbl`
-  MODIFY `userid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `userid` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- Constraints for dumped tables
