@@ -13,7 +13,7 @@ class AdminProfileScreen extends StatefulWidget {
 }
 
 class _AdminProfileScreenState extends State<AdminProfileScreen> {
-  final _svc = const AdminProfileService(apiRoot: 'http://10.0.2.2/carenta/api');
+  final _svc = AdminProfileService();
 
   int? _adminId;
   bool _checkingSession = true;
@@ -104,8 +104,9 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     setState(() {
       _saving = false;
     });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
     if (res['status'] == 'success') {
       setState(() {
         _isEditing = false;
@@ -129,15 +130,19 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     setState(() {
       _changingPw = false;
     });
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Updated')));
   }
 
   Future<void> _pickAndUploadAvatar() async {
     if (!_isEditing) return;
     final picker = ImagePicker();
     final x = await picker.pickImage(
-        source: ImageSource.gallery, maxWidth: 1200, imageQuality: 88);
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 88,
+    );
     if (x == null) return;
     final file = File(x.path);
     final res = await _svc.uploadAvatar(adminId: _adminId!, imageFile: file);
@@ -146,11 +151,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
       setState(() {
         _avatarUrl = (res['avatar_url'] as String?);
       });
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(res['message'])));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res['message'])));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message'] ?? 'Upload failed')));
+        SnackBar(content: Text(res['message'] ?? 'Upload failed')),
+      );
     }
   }
 
@@ -166,15 +173,11 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_checkingSession) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_adminId == null) {
-      return const Scaffold(
-        body: Center(child: Text("No admin session")),
-      );
+      return const Scaffold(body: Center(child: Text("No admin session")));
     }
 
     final scheme = Theme.of(context).colorScheme;
@@ -213,36 +216,42 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       child: Column(
                         children: [
                           _FieldRow(
-                              label: 'First name',
-                              controller: _first,
-                              enabled: _isEditing),
+                            label: 'First name',
+                            controller: _first,
+                            enabled: _isEditing,
+                          ),
                           _FieldRow(
-                              label: 'Last name',
-                              controller: _last,
-                              enabled: _isEditing),
+                            label: 'Last name',
+                            controller: _last,
+                            enabled: _isEditing,
+                          ),
                           _FieldRow(
-                              label: 'Email',
-                              controller: _email,
-                              enabled: _isEditing,
-                              keyboardType: TextInputType.emailAddress),
+                            label: 'Email',
+                            controller: _email,
+                            enabled: _isEditing,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
                           _FieldRow(
-                              label: 'Phone',
-                              controller: _phone,
-                              enabled: _isEditing,
-                              keyboardType: TextInputType.phone),
+                            label: 'Phone',
+                            controller: _phone,
+                            enabled: _isEditing,
+                            keyboardType: TextInputType.phone,
+                          ),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('Two-factor authentication'),
-                            subtitle:
-                                const Text('Add extra security to your account'),
+                            subtitle: const Text(
+                              'Add extra security to your account',
+                            ),
                             value: _twoFA,
-                            onChanged: _isEditing
-                                ? (v) {
-                                    setState(() {
-                                      _twoFA = v;
-                                    });
-                                  }
-                                : null,
+                            onChanged:
+                                _isEditing
+                                    ? (v) {
+                                      setState(() {
+                                        _twoFA = v;
+                                      });
+                                    }
+                                    : null,
                           ),
                         ],
                       ),
@@ -257,7 +266,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                               onPressed: _changingPw ? null : _changePassword,
                               icon: const Icon(Icons.password_rounded),
                               label: Text(
-                                  _changingPw ? 'Changing…' : 'Change password'),
+                                _changingPw ? 'Changing…' : 'Change password',
+                              ),
                             ),
                           ),
                         ],
@@ -302,8 +312,13 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [cs.primary.withValues(alpha: 0.12), cs.primary.withValues(alpha: 0.04), Colors.transparent],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [
+            cs.primary.withValues(alpha: 0.12),
+            cs.primary.withValues(alpha: 0.04),
+            Colors.transparent,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
       child: SafeArea(
@@ -312,10 +327,23 @@ class _Header extends StatelessWidget {
           children: [
             Icon(Icons.manage_accounts_rounded, color: cs.primary, size: 32),
             const SizedBox(width: 12),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
-              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-            ]),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -337,21 +365,32 @@ class _Avatar extends StatelessWidget {
           CircleAvatar(
             radius: 48,
             backgroundColor: cs.surfaceContainerHighest,
-            backgroundImage: (avatarUrl != null && avatarUrl!.isNotEmpty) ? NetworkImage(avatarUrl!) : null,
-            child: (avatarUrl == null || avatarUrl!.isEmpty) ? const Icon(Icons.person_rounded, size: 48) : null,
+            backgroundImage:
+                (avatarUrl != null && avatarUrl!.isNotEmpty)
+                    ? NetworkImage(avatarUrl!)
+                    : null,
+            child:
+                (avatarUrl == null || avatarUrl!.isEmpty)
+                    ? const Icon(Icons.person_rounded, size: 48)
+                    : null,
           ),
           if (editable)
             Positioned(
-              right: 0, bottom: 0,
+              right: 0,
+              bottom: 0,
               child: InkWell(
                 onTap: onTap,
                 child: CircleAvatar(
                   radius: 18,
                   backgroundColor: cs.primary,
-                  child: Icon(Icons.edit_rounded, size: 18, color: cs.onPrimary),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 18,
+                    color: cs.onPrimary,
+                  ),
                 ),
               ),
-            )
+            ),
         ],
       ),
     );
@@ -365,14 +404,22 @@ class _InfoChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Wrap(
-      spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
       children: [
-        Chip(avatar: const Icon(Icons.badge_rounded, size: 18), label: Text(username)),
+        Chip(
+          avatar: const Icon(Icons.badge_rounded, size: 18),
+          label: Text(username),
+        ),
         Chip(
           avatar: const Icon(Icons.security_rounded, size: 18),
           label: Text(role.toUpperCase()),
           backgroundColor: cs.primaryContainer,
-          labelStyle: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w600),
+          labelStyle: TextStyle(
+            color: cs.onPrimaryContainer,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -390,11 +437,19 @@ class _SectionCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 12),
-          child,
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -405,7 +460,12 @@ class _FieldRow extends StatelessWidget {
   final TextEditingController controller;
   final bool enabled;
   final TextInputType? keyboardType;
-  const _FieldRow({required this.label, required this.controller, required this.enabled, this.keyboardType});
+  const _FieldRow({
+    required this.label,
+    required this.controller,
+    required this.enabled,
+    this.keyboardType,
+  });
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -423,7 +483,13 @@ class _FieldRow extends StatelessWidget {
 class _ActionsBar extends StatelessWidget {
   final bool editing, saving;
   final VoidCallback? onEdit, onCancel, onSave;
-  const _ActionsBar({required this.editing, required this.saving, this.onEdit, this.onCancel, this.onSave});
+  const _ActionsBar({
+    required this.editing,
+    required this.saving,
+    this.onEdit,
+    this.onCancel,
+    this.onSave,
+  });
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -432,14 +498,32 @@ class _ActionsBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         decoration: BoxDecoration(
           color: Theme.of(context).scaffoldBackgroundColor,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, -2))],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
         child: Row(
           children: [
             if (!editing)
-              Expanded(child: FilledButton.icon(onPressed: onEdit, icon: const Icon(Icons.edit_rounded), label: const Text('Edit'))),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('Edit'),
+                ),
+              ),
             if (editing) ...[
-              Expanded(child: OutlinedButton.icon(onPressed: onCancel, icon: const Icon(Icons.close_rounded), label: const Text('Cancel'))),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onCancel,
+                  icon: const Icon(Icons.close_rounded),
+                  label: const Text('Cancel'),
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: FilledButton.icon(
@@ -464,58 +548,101 @@ class _Error extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.error_outline_rounded, size: 56, color: cs.error),
-        const SizedBox(height: 12),
-        Text(message, style: TextStyle(color: cs.onSurfaceVariant)),
-        const SizedBox(height: 8),
-        FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('Retry')),
-      ]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline_rounded, size: 56, color: cs.error),
+          const SizedBox(height: 12),
+          Text(message, style: TextStyle(color: cs.onSurfaceVariant)),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }
 
 /* bottom-sheet for password */
-Future<(String,String)?> _askPassword(BuildContext context) async {
+Future<(String, String)?> _askPassword(BuildContext context) async {
   final oldC = TextEditingController();
   final newC = TextEditingController();
   final formKey = GlobalKey<FormState>();
-  final result = await showModalBottomSheet<(String,String)>(
+  final result = await showModalBottomSheet<(String, String)>(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-    builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: formKey,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text('Change password', style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: oldC, obscureText: true, decoration: const InputDecoration(labelText: 'Current password'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: newC, obscureText: true, decoration: const InputDecoration(labelText: 'New password (min 8 chars)'),
-              validator: (v) => (v == null || v.length < 8) ? 'Min 8 characters' : null,
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel'))),
-              const SizedBox(width: 8),
-              Expanded(child: FilledButton(onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(ctx, (oldC.text, newC.text));
-                }
-              }, child: const Text('Update'))),
-            ]),
-          ]),
-        ),
-      ),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
+    builder:
+        (ctx) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Change password',
+                    style: Theme.of(ctx).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: oldC,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current password',
+                    ),
+                    validator:
+                        (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: newC,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New password (min 8 chars)',
+                    ),
+                    validator:
+                        (v) =>
+                            (v == null || v.length < 8)
+                                ? 'Min 8 characters'
+                                : null,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            if (formKey.currentState!.validate()) {
+                              Navigator.pop(ctx, (oldC.text, newC.text));
+                            }
+                          },
+                          child: const Text('Update'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
   );
   return result;
 }

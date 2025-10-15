@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:carenta/service/config/service_base_url.dart';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:http_parser/http_parser.dart';
 
 class AdminAddCarService {
-  static const String _endpoint = 'http://10.0.2.2/carenta/api/adminaddcar.php';
+  static final String _endpoint = ServiceBaseUrl.endpoint("admin_add_car.php");
 
   /// Sends a multipart request that matches adminaddcar.php
   static Future<Map<String, dynamic>> addCar({

@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:carenta/service/admin/admin_booking_service.dart';
 
-// ✅ file-level singleton (not static methods)
-const _bookingSvc = AdminBookingService();
+/// ✅ Create a single instance of the service (not static)
+final AdminBookingService _bookingSvc = AdminBookingService();
 
 class BookingTimeline extends StatelessWidget {
   const BookingTimeline({super.key});
@@ -11,29 +11,76 @@ class BookingTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _bookingSvc.fetchTimeline(), // ✅ instance call
-      builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) {
+      future: _bookingSvc.fetchTimeline(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snap.hasError) {
-          return Center(child: Text("Error: ${snap.error}"));
-        }
-        final bookings = snap.data ?? [];
-        if (bookings.isEmpty) {
-          return const Center(child: Text("No bookings today."));
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                "⚠️ Failed to load booking timeline:\n${snapshot.error}",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ),
+          );
         }
 
-        return Column(
-          children:
-              bookings.map((b) {
-                return ListTile(
-                  leading: const Icon(Icons.access_time, color: Colors.blue),
-                  title: Text("${b["manufacturer"]} ${b["car_model"]}"),
-                  subtitle: Text(b["status"].toString()),
-                  trailing: Text(b["time"].toString()),
-                );
-              }).toList(),
+        final bookings = snapshot.data ?? [];
+        if (bookings.isEmpty) {
+          return const Center(
+            child: Text(
+              "No recent bookings found.",
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          physics: const BouncingScrollPhysics(),
+          shrinkWrap: true,
+          itemCount: bookings.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final b = bookings[index];
+
+            final carName =
+                "${b["manufacturer"] ?? ""} ${b["car_model"] ?? ""}".trim();
+            final status = (b["status"] ?? "unknown").toString().toUpperCase();
+            final time = b["time"]?.toString() ?? "";
+
+            Color statusColor;
+            switch (status.toLowerCase()) {
+              case "confirmed":
+                statusColor = Colors.green;
+                break;
+              case "pending":
+                statusColor = Colors.orange;
+                break;
+              case "cancelled":
+                statusColor = Colors.red;
+                break;
+              default:
+                statusColor = Colors.grey;
+            }
+
+            return ListTile(
+              leading: Icon(Icons.access_time, color: statusColor),
+              title: Text(
+                carName.isNotEmpty ? carName : "Unknown Car",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text("Status: $status"),
+              trailing: Text(
+                time,
+                style: const TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+            );
+          },
         );
       },
     );

@@ -12,7 +12,7 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  final _svc = const UserProfileService(apiRoot: 'http://10.0.2.2/carenta/api');
+  final _svc = UserProfileService();
 
   // controllers
   final _firstC = TextEditingController();

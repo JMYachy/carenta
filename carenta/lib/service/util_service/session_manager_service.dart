@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'package:carenta/service/config/service_base_url.dart';
 import 'package:http/http.dart' as http;
 
 class SessionService {
-  static const String _url = "http://10.0.2.2/carenta/api/session_manager.php";
+  static final String _url = ServiceBaseUrl.endpoint("session_manager.php");
 
   static final http.Client _client = http.Client();
   static String? _cookie; // e.g., "PHPSESSID=xxxx"

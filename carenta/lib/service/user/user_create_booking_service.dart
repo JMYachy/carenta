@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
-/// BookingResult maps the response from create_booking.php
+/// BookingResult maps the response from add_booking.php
 class BookingResult {
   final bool success;
   final String message;
@@ -78,8 +79,16 @@ class BookingResult {
       endTime: pickStr(json, ['end_time', 'endTime']),
       days: toIntOrNull(json['days']),
       totalAmount: toDoubleOrNull(json['total_amount'] ?? json['totalAmount']),
-      pickupLocation: pickStr(json, ['pickup_location', 'pickupLocation', 'pickup']),
-      dropoffLocation: pickStr(json, ['dropoff_location', 'dropoffLocation', 'dropoff']),
+      pickupLocation: pickStr(json, [
+        'pickup_location',
+        'pickupLocation',
+        'pickup',
+      ]),
+      dropoffLocation: pickStr(json, [
+        'dropoff_location',
+        'dropoffLocation',
+        'dropoff',
+      ]),
       status: pickStr(json, ['status']),
       raw: json,
     );
@@ -90,19 +99,17 @@ class BookingResult {
   }
 }
 
-/// Service that calls create_booking.php
+/// ✅ Service that calls add_booking.php
 class UserCreateBookingService {
-  final String _endpoint;
   final http.Client _client;
 
-  UserCreateBookingService({
-    String? endpoint,
-    http.Client? client,
-  })  : _endpoint = endpoint ?? 'http://10.0.2.2/carenta/api/create_booking.php',
-        _client = client ?? http.Client();
+  UserCreateBookingService({http.Client? client})
+    : _client = client ?? http.Client();
 
-  /// Create a booking.
-  /// Dates: `YYYY-MM-DD`, Times: `HH:mm` (24h).
+  String get _endpoint => ServiceBaseUrl.endpoint("create_booking.php");
+
+  /// ✅ Create a booking (User → API)
+  /// Dates: `YYYY-MM-DD`, Times: `HH:mm` (24h)
   Future<BookingResult> createBooking({
     required int carId,
     required int userId,
@@ -118,7 +125,7 @@ class UserCreateBookingService {
     try {
       final uri = Uri.parse(_endpoint);
 
-      // ✅ Ensure consistent snake_case keys that PHP expects
+      // ✅ PHP expects snake_case keys
       final body = <String, String>{
         'carid': '$carId',
         'userid': '$userId',
@@ -139,28 +146,28 @@ class UserCreateBookingService {
           )
           .timeout(timeout);
 
-      Map<String, dynamic>? json;
-      try {
-        json = jsonDecode(res.body) as Map<String, dynamic>;
-      } catch (_) {
-        if (res.statusCode == 200) {
-          return BookingResult.error(
-            'Invalid server response',
-            raw: {'raw': res.body},
-          );
-        }
+      if (res.statusCode != 200) {
         return BookingResult.error(
           'HTTP ${res.statusCode}',
           raw: {'raw': res.body},
         );
       }
 
+      Map<String, dynamic>? json;
+      try {
+        json = jsonDecode(res.body) as Map<String, dynamic>;
+      } catch (_) {
+        return BookingResult.error(
+          'Invalid server response',
+          raw: {'raw': res.body},
+        );
+      }
+
       final result = BookingResult.fromJson(json);
-      if (res.statusCode >= 200 && res.statusCode < 300) {
+      if (result.success) {
         return result;
       } else {
-        if (!result.success && (result.message.isNotEmpty)) return result;
-        return BookingResult.error('HTTP ${res.statusCode}', raw: json);
+        return BookingResult.error(result.message, raw: json);
       }
     } on TimeoutException {
       return BookingResult.error('Request timed out');

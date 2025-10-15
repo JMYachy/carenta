@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
-/// Page model with metadata + cars list
+/// Model for a paginated response containing cars
 class CarPage {
   final bool success;
   final int total;
@@ -19,21 +20,17 @@ class CarPage {
 }
 
 class AdminGetCarService {
-  /// Base URL to your /api folder (trailing slash is handy)
-  final String baseUrl;
   final http.Client _client;
 
-  AdminGetCarService({
-    this.baseUrl = 'http://10.0.2.2/carenta/api/',
-    http.Client? client,
-  }) : _client = client ?? http.Client();
+  AdminGetCarService({http.Client? client}) : _client = client ?? http.Client();
 
+  /// Helper to build absolute URLs for images and files
   String _resolveUrl(dynamic path) {
     if (path == null) return '';
-    final p = path.toString();
+    final p = path.toString().trim();
     if (p.isEmpty) return '';
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
-    return '$baseUrl$p';
+    return '${ServiceBaseUrl.baseUrl}$p';
   }
 
   double? _toNum(dynamic v) {
@@ -42,16 +39,25 @@ class AdminGetCarService {
     return double.tryParse(v.toString());
   }
 
-  /// New: full-featured fetch with pagination & normalization
-  Future<CarPage> fetchCarsPage({int limit = 50, int offset = 0}) async {
-    final uri = Uri.parse('${baseUrl}admingetcar.php')
-        .replace(queryParameters: {'limit': '$limit', 'offset': '$offset'});
+  /// Fetch cars with pagination and optional search
+  Future<CarPage> fetchCarsPage({
+    int limit = 50,
+    int offset = 0,
+    String? search,
+  }) async {
+    final uri = Uri.parse(ServiceBaseUrl.endpoint("admin_get_car.php")).replace(
+      queryParameters: {
+        'limit': '$limit',
+        'offset': '$offset',
+        if (search != null && search.isNotEmpty) 'q': search,
+      },
+    );
 
     final res = await _client.get(uri);
     final bodyText = res.body.trim();
 
     if (res.statusCode != 200) {
-      throw Exception('Failed to fetch cars: ${res.statusCode}');
+      throw Exception('Failed to fetch cars: HTTP ${res.statusCode}');
     }
 
     dynamic decoded;
@@ -62,32 +68,39 @@ class AdminGetCarService {
     }
 
     if (decoded is! Map || decoded['success'] != true) {
-      final msg = (decoded is Map ? decoded['message'] : null) ?? 'Unknown error';
+      final msg =
+          (decoded is Map ? decoded['message'] : null) ?? 'Unknown error';
       throw Exception('API error: $msg');
     }
 
-    // Normalize cars
     final rawCars = (decoded['cars'] as List?) ?? const [];
-    final cars = rawCars.map<Map<String, dynamic>>((e) {
-      final m = Map<String, dynamic>.from(e as Map);
+    final cars = rawCars
+        .map<Map<String, dynamic>>((e) {
+          final m = Map<String, dynamic>.from(e as Map);
 
-      // make media URLs absolute
-      m['media_url'] = _resolveUrl(m['media_url']);
-      m['thumbnail_url'] = _resolveUrl(m['thumbnail_url']);
+          // Make URLs absolute
+          m['media_url'] = _resolveUrl(m['media_url']);
+          m['thumbnail_url'] = _resolveUrl(m['thumbnail_url']);
 
-      // numbers as numbers
-      for (final k in ['hourly_rate', 'daily_rate', 'weekly_rate', 'monthly_rate']) {
-        m[k] = _toNum(m[k]);
-      }
+          // Convert to numeric values
+          for (final k in [
+            'hourly_rate',
+            'daily_rate',
+            'weekly_rate',
+            'monthly_rate',
+          ]) {
+            m[k] = _toNum(m[k]);
+          }
 
-      // convenience fields
-      final manu = (m['manufacturer'] ?? '').toString();
-      final model = (m['model'] ?? '').toString();
-      m['car_name'] = (m['car_name'] ?? '$manu $model').toString().trim();
-      m['price_per_day'] = m['daily_rate']; // handy for cards
+          // Extra UI-friendly fields
+          final manu = (m['manufacturer'] ?? '').toString();
+          final model = (m['model'] ?? '').toString();
+          m['car_name'] = (m['car_name'] ?? '$manu $model').toString().trim();
+          m['price_per_day'] = m['daily_rate'];
 
-      return m;
-    }).toList(growable: false);
+          return m;
+        })
+        .toList(growable: false);
 
     return CarPage(
       success: true,
@@ -96,11 +109,19 @@ class AdminGetCarService {
       offset: (decoded['offset'] ?? offset) as int,
       cars: cars,
     );
-    }
+  }
 
-  /// Backwards-compatible: returns just the car list (first page)
-  Future<List<Map<String, dynamic>>> getCars({int limit = 50, int offset = 0}) async {
-    final page = await fetchCarsPage(limit: limit, offset: offset);
+  /// Quick helper to get just the car list
+  Future<List<Map<String, dynamic>>> getCars({
+    int limit = 50,
+    int offset = 0,
+    String? search,
+  }) async {
+    final page = await fetchCarsPage(
+      limit: limit,
+      offset: offset,
+      search: search,
+    );
     return page.cars;
   }
 

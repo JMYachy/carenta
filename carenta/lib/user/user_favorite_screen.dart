@@ -12,7 +12,7 @@ class UserFavoritesScreen extends StatefulWidget {
 
 class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
   final _searchC = TextEditingController();
-  final _svc = const FavoritesService(apiRoot: 'http://10.0.2.2/carenta/api');
+  final _svc = FavoritesService();
 
   final List<_FilterSpec> _filters = const [
     _FilterSpec('All', Icons.all_inclusive_rounded),
@@ -90,9 +90,10 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
 
     if (res['status'] == 'success') {
       final List data = (res['data'] as List?) ?? const [];
-      final parsed = data
-          .map((e) => _FavItem.fromMap(Map<String, dynamic>.from(e as Map)))
-          .toList();
+      final parsed =
+          data
+              .map((e) => _FavItem.fromMap(Map<String, dynamic>.from(e as Map)))
+              .toList();
       _items = parsed;
       return parsed;
     }
@@ -134,9 +135,9 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
         SnackBar(content: Text(res['message'] ?? 'Removed from favorites')),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message'] ?? 'Failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Failed')));
     }
   }
 
@@ -151,48 +152,48 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     if (_userId == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Column(
         children: [
-          _HeaderBar(title: 'Favorites', subtitle: 'Your saved cars'),
           // Search + actions
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
-              children: {
-                Expanded(
-                  child: _SearchField(
-                    controller: _searchC,
-                    hint: 'Search saved cars',
-                    onSubmit: (_) => _reload(),
-                    onClear: () {
-                      _searchC.clear();
-                      _reload();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _SquareIconButton(
-                  tooltip: _isGrid ? 'Show list' : 'Show grid',
-                  icon:
-                      _isGrid ? Icons.view_list_rounded : Icons.grid_view_rounded,
-                  onTap: () => setState(() => _isGrid = !_isGrid),
-                ),
-                const SizedBox(width: 9),
-                _SortButton(
-                  value: _sort,
-                  onSelected: (v) {
-                    setState(() => _sort = v);
-                    _reload();
-                  },
-                ),
-              }.toList(),
+              children:
+                  {
+                    Expanded(
+                      child: _SearchField(
+                        controller: _searchC,
+                        hint: 'Search saved cars',
+                        onSubmit: (_) => _reload(),
+                        onClear: () {
+                          _searchC.clear();
+                          _reload();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _SquareIconButton(
+                      tooltip: _isGrid ? 'Show list' : 'Show grid',
+                      icon:
+                          _isGrid
+                              ? Icons.view_list_rounded
+                              : Icons.grid_view_rounded,
+                      onTap: () => setState(() => _isGrid = !_isGrid),
+                    ),
+                    const SizedBox(width: 9),
+                    _SortButton(
+                      value: _sort,
+                      onSelected: (v) {
+                        setState(() => _sort = v);
+                        _reload();
+                      },
+                    ),
+                  }.toList(),
             ),
           ),
           _FilterStrip(
@@ -204,8 +205,9 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: scheme.surface,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.06),
@@ -229,66 +231,67 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
                   final list = snap.data ?? const <_FavItem>[];
                   if (list.isEmpty) return const _EmptyState();
 
-                  final child = _isGrid
-                      ? GridView.builder(
-                          key: const ValueKey('grid'),
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.78,
-                          ),
-                          itemCount: list.length,
-                          itemBuilder: (_, i) {
-                            final m = list[i];
-                            return FavoriteCarCard(
-                              title: m.title,
-                              imageUrl: m.imageUrl,
-                              pricePerDay: m.pricePerDay,
-                              seats: m.seats,
-                              transmission: m.transmission,
-                              withDriver: m.withDriver,
-                              rating: m.rating,
-                              tags: m.tags,
-                              isFavorite: true,
-                              layout: FavoriteCardLayout.grid,
-                              onFavoriteTap: _busy.contains(m.carId)
-                                  ? null
-                                  : () => _toggleFavorite(m),
-                              onTap: () {},
-                            );
-                          },
-                        )
-                      : ListView.separated(
-                          key: const ValueKey('list'),
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                          itemCount: list.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (_, i) {
-                            final m = list[i];
-                            return FavoriteCarCard(
-                              title: m.title,
-                              imageUrl: m.imageUrl,
-                              pricePerDay: m.pricePerDay,
-                              seats: m.seats,
-                              transmission: m.transmission,
-                              withDriver: m.withDriver,
-                              rating: m.rating,
-                              tags: m.tags,
-                              isFavorite: true,
-                              layout: FavoriteCardLayout.list,
-                              onFavoriteTap: _busy.contains(m.carId)
-                                  ? null
-                                  : () => _toggleFavorite(m),
-                              onTap: () {},
-                            );
-                          },
-                        );
+                  final child =
+                      _isGrid
+                          ? GridView.builder(
+                            key: const ValueKey('grid'),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.78,
+                                ),
+                            itemCount: list.length,
+                            itemBuilder: (_, i) {
+                              final m = list[i];
+                              return FavoriteCarCard(
+                                title: m.title,
+                                imageUrl: m.imageUrl,
+                                pricePerDay: m.pricePerDay,
+                                seats: m.seats,
+                                transmission: m.transmission,
+                                withDriver: m.withDriver,
+                                rating: m.rating,
+                                tags: m.tags,
+                                isFavorite: true,
+                                layout: FavoriteCardLayout.grid,
+                                onFavoriteTap:
+                                    _busy.contains(m.carId)
+                                        ? null
+                                        : () => _toggleFavorite(m),
+                                onTap: () {},
+                              );
+                            },
+                          )
+                          : ListView.separated(
+                            key: const ValueKey('list'),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            itemCount: list.length,
+                            separatorBuilder:
+                                (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (_, i) {
+                              final m = list[i];
+                              return FavoriteCarCard(
+                                title: m.title,
+                                imageUrl: m.imageUrl,
+                                pricePerDay: m.pricePerDay,
+                                seats: m.seats,
+                                transmission: m.transmission,
+                                withDriver: m.withDriver,
+                                rating: m.rating,
+                                tags: m.tags,
+                                isFavorite: true,
+                                layout: FavoriteCardLayout.list,
+                                onFavoriteTap:
+                                    _busy.contains(m.carId)
+                                        ? null
+                                        : () => _toggleFavorite(m),
+                                onTap: () {},
+                              );
+                            },
+                          );
 
                   return RefreshIndicator(onRefresh: _refresh, child: child);
                 },
@@ -339,9 +342,10 @@ class _FavItem {
     final brand = _toStr(m['brand']);
     final model = _toStr(m['model']);
     final carname = _toStr(m['carname']);
-    final title = carname.isNotEmpty
-        ? carname
-        : (brand.isNotEmpty || model.isNotEmpty)
+    final title =
+        carname.isNotEmpty
+            ? carname
+            : (brand.isNotEmpty || model.isNotEmpty)
             ? [brand, model].where((e) => e.isNotEmpty).join(' ')
             : 'Car #$carId';
 
@@ -350,7 +354,8 @@ class _FavItem {
     final seats = _toInt(m['seats'] ?? m['capacity'] ?? m['max_seats'], def: 4);
     final trans = _toStr(m['transmission'], def: 'Automatic');
     final withDriver =
-        (m['with_driver']?.toString() == '1') || (m['driver_available']?.toString() == '1');
+        (m['with_driver']?.toString() == '1') ||
+        (m['driver_available']?.toString() == '1');
     final rating = _toDouble(m['rating'], def: 4.5);
 
     final tags = <String>[
@@ -373,8 +378,6 @@ class _FavItem {
 }
 
 class _HeaderBar extends StatelessWidget {
-  final String title, subtitle;
-  const _HeaderBar({required this.title, required this.subtitle});
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -385,7 +388,7 @@ class _HeaderBar extends StatelessWidget {
           colors: [
             scheme.primary.withValues(alpha: 0.12),
             scheme.primary.withValues(alpha: 0.04),
-            Colors.transparent
+            Colors.transparent,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -397,21 +400,7 @@ class _HeaderBar extends StatelessWidget {
           children: [
             Icon(Icons.favorite_rounded, color: scheme.primary, size: 32),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)),
-                Text(subtitle,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant)),
-              ],
-            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.start),
           ],
         ),
       ),
@@ -429,8 +418,11 @@ class _FilterStrip extends StatelessWidget {
   final List<_FilterSpec> filters;
   final int selected;
   final ValueChanged<int> onSelect;
-  const _FilterStrip(
-      {required this.filters, required this.selected, required this.onSelect});
+  const _FilterStrip({
+    required this.filters,
+    required this.selected,
+    required this.onSelect,
+  });
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -443,11 +435,14 @@ class _FilterStrip extends StatelessWidget {
         itemBuilder: (context, i) {
           final isSelected = i == selected;
           return ChoiceChip(
-            label: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(filters[i].icon, size: 18),
-              const SizedBox(width: 6),
-              Text(filters[i].label),
-            ]),
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(filters[i].icon, size: 18),
+                const SizedBox(width: 6),
+                Text(filters[i].label),
+              ],
+            ),
             selected: isSelected,
             onSelected: (_) => onSelect(i),
           );
@@ -462,8 +457,12 @@ class _SearchField extends StatelessWidget {
   final String hint;
   final ValueChanged<String>? onSubmit;
   final VoidCallback? onClear;
-  const _SearchField(
-      {required this.controller, required this.hint, this.onSubmit, this.onClear});
+  const _SearchField({
+    required this.controller,
+    required this.hint,
+    this.onSubmit,
+    this.onClear,
+  });
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -473,19 +472,24 @@ class _SearchField extends StatelessWidget {
         isDense: true,
         hintText: hint,
         prefixIcon: const Icon(Icons.search_rounded),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Clear',
-                onPressed: onClear,
-                icon: const Icon(Icons.clear_rounded),
-              ),
+        suffixIcon:
+            controller.text.isEmpty
+                ? null
+                : IconButton(
+                  tooltip: 'Clear',
+                  onPressed: onClear,
+                  icon: const Icon(Icons.clear_rounded),
+                ),
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 12,
+        ),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
       ),
       textInputAction: TextInputAction.search,
       onSubmitted: onSubmit,
@@ -500,8 +504,11 @@ class _SquareIconButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
-  const _SquareIconButton(
-      {required this.icon, required this.tooltip, this.onTap});
+  const _SquareIconButton({
+    required this.icon,
+    required this.tooltip,
+    this.onTap,
+  });
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -534,17 +541,22 @@ class _SortButton extends StatelessWidget {
       'Recently added',
       'Price: low to high',
       'Price: high to low',
-      'Top rated'
+      'Top rated',
     ];
     return PopupMenuButton<String>(
       tooltip: 'Sort',
       initialValue: value,
       onSelected: onSelected,
-      itemBuilder: (ctx) => items
-          .map((e) => PopupMenuItem<String>(value: e, child: Text(e)))
-          .toList(),
+      itemBuilder:
+          (ctx) =>
+              items
+                  .map((e) => PopupMenuItem<String>(value: e, child: Text(e)))
+                  .toList(),
       child: const _SquareIconButton(
-          icon: Icons.sort_rounded, tooltip: 'Sort', onTap: null),
+        icon: Icons.sort_rounded,
+        tooltip: 'Sort',
+        onTap: null,
+      ),
     );
   }
 }
@@ -555,17 +567,23 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(Icons.favorite_border_rounded, size: 56, color: cs.primary),
-        const SizedBox(height: 12),
-        Text('No favorites yet',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: cs.onSurfaceVariant)),
-        Text('Save cars to see them here',
-            style: TextStyle(color: cs.onSurfaceVariant)),
-      ]),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite_border_rounded, size: 56, color: cs.primary),
+          const SizedBox(height: 12),
+          Text(
+            'No favorites yet',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          Text(
+            'Save cars to see them here',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -578,21 +596,27 @@ class _ErrState extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.error_outline_rounded, size: 56, color: cs.error),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(message,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.error_outline_rounded, size: 56, color: cs.error),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: cs.onSurfaceVariant)),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
+              style: TextStyle(color: cs.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Retry')),
-      ]),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
 class UserProfileService {
-  /// Use 10.0.2.2 for Android emulator, your LAN IP for real devices.
-  final String apiRoot;
-  const UserProfileService({this.apiRoot = 'http://10.0.2.2/carenta/api'});
+  final String baseUrl = ServiceBaseUrl.baseUrl;
 
   Map<String, dynamic> _toMap(dynamic v) {
     if (v is Map<String, dynamic>) return v;
@@ -13,47 +12,55 @@ class UserProfileService {
     return <String, dynamic>{};
   }
 
-  /// Fetch profile by user_id (GET user_profile.php?user_id=)
+  /// ✅ Fetch user profile by ID
   Future<Map<String, dynamic>> fetchProfile(
     int userId, {
     Duration timeout = const Duration(seconds: 12),
   }) async {
     final uri = Uri.parse(
-      '$apiRoot/user_profile.php',
+      "${baseUrl}user_profile.php",
     ).replace(queryParameters: {'user_id': '$userId'});
 
-    final res = await http.get(uri).timeout(timeout);
-    if (res.statusCode != 200) {
+    try {
+      final res = await http.get(uri).timeout(timeout);
+      if (res.statusCode != 200) {
+        return {
+          "success": false,
+          "message": "HTTP ${res.statusCode}",
+          "body": res.body,
+        };
+      }
+
+      final body = res.body.trimLeft();
+      if (!(body.startsWith('{') || body.startsWith('['))) {
+        return {
+          "success": false,
+          "message": "Unexpected server response",
+          "body": body,
+        };
+      }
+
+      final decoded = _toMap(jsonDecode(body));
+      if (decoded['ok'] == true || decoded['status'] == 'success') {
+        final data =
+            _toMap(decoded['data']).isNotEmpty
+                ? _toMap(decoded['data'])
+                : decoded;
+        return {"status": "success", "data": data};
+      }
+
       return {
         "success": false,
-        "message": "HTTP ${res.statusCode}",
-        "body": res.body,
+        "message":
+            decoded['message'] ?? decoded['error'] ?? 'Failed to fetch profile',
+        "body": body,
       };
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
     }
-
-    final raw = res.body.trimLeft();
-    if (!(raw.startsWith('{') || raw.startsWith('['))) {
-      return {
-        "success": false,
-        "message": "Unexpected server response",
-        "body": raw,
-      };
-    }
-
-    final root = _toMap(jsonDecode(raw));
-    if (root['ok'] == true || root['status'] == 'success') {
-      final data =
-          _toMap(root['data']).isNotEmpty ? _toMap(root['data']) : root;
-      return {"status": "success", "data": data};
-    }
-    return {
-      "success": false,
-      "message": root['message'] ?? root['error'] ?? 'Failed to fetch profile',
-      "body": raw,
-    };
   }
 
-  /// Update profile with all fields (POST user_profile.php)
+  /// ✅ Update user profile (with or without avatar)
   Future<Map<String, dynamic>> updateProfile({
     required int userId,
     required String firstName,
@@ -71,93 +78,126 @@ class UserProfileService {
     String? language,
     String? timezone,
     bool? darkMode,
-    File? avatarFile, // optional multipart file
+    File? avatarFile,
     Duration timeout = const Duration(seconds: 20),
   }) async {
-    if (avatarFile != null) {
-      // Multipart if avatar is included
-      final req = http.MultipartRequest(
-        'POST',
-        Uri.parse('$apiRoot/user_profile.php'),
-      );
-      req.fields.addAll({
-        'user_id': '$userId',
-        'first_name': firstName,
-        'last_name': lastName,
-        'email': email,
-        'phone_number': phone,
-        if (username != null) 'username': username,
-        if (gender != null) 'gender': gender,
-        if (birthdate != null) 'birthdate': birthdate,
-        if (address != null) 'address': address,
-        if (city != null) 'city': city,
-        if (province != null) 'province': province,
-        if (zipCode != null) 'zip_code': zipCode,
-        if (country != null) 'country': country,
-        if (language != null) 'language': language,
-        if (timezone != null) 'timezone': timezone,
-        if (darkMode != null) 'dark_mode': darkMode ? '1' : '0',
-      });
-      req.files.add(
-        await http.MultipartFile.fromPath('avatar', avatarFile.path),
-      );
+    final uri = Uri.parse("${baseUrl}user_profile_update.php");
 
-      final streamed = await req.send().timeout(timeout);
-      final res = await http.Response.fromStream(streamed);
+    try {
+      if (avatarFile != null) {
+        // Multipart form for avatar upload
+        final req =
+            http.MultipartRequest('POST', uri)
+              ..fields.addAll({
+                'user_id': '$userId',
+                'first_name': firstName,
+                'last_name': lastName,
+                'email': email,
+                'phone_number': phone,
+                if (username != null) 'username': username,
+                if (gender != null) 'gender': gender,
+                if (birthdate != null) 'birthdate': birthdate,
+                if (address != null) 'address': address,
+                if (city != null) 'city': city,
+                if (province != null) 'province': province,
+                if (zipCode != null) 'zip_code': zipCode,
+                if (country != null) 'country': country,
+                if (language != null) 'language': language,
+                if (timezone != null) 'timezone': timezone,
+                if (darkMode != null) 'dark_mode': darkMode ? '1' : '0',
+              })
+              ..files.add(
+                await http.MultipartFile.fromPath('avatar', avatarFile.path),
+              );
 
-      return _parseResponse(res);
-    } else {
-      // Simple form POST if no avatar
-      final res = await http
-          .post(
-            Uri.parse('$apiRoot/user_profile.php'),
-            body: {
-              'user_id': '$userId',
-              'first_name': firstName,
-              'last_name': lastName,
-              'email': email,
-              'phone_number': phone,
-              if (username != null) 'username': username,
-              if (gender != null) 'gender': gender,
-              if (birthdate != null) 'birthdate': birthdate,
-              if (address != null) 'address': address,
-              if (city != null) 'city': city,
-              if (province != null) 'province': province,
-              if (zipCode != null) 'zip_code': zipCode,
-              if (country != null) 'country': country,
-              if (language != null) 'language': language,
-              if (timezone != null) 'timezone': timezone,
-              if (darkMode != null) 'dark_mode': darkMode ? '1' : '0',
-            },
-          )
-          .timeout(timeout);
+        final streamed = await req.send().timeout(timeout);
+        final res = await http.Response.fromStream(streamed);
+        return _parseResponse(res);
+      } else {
+        // Regular POST (no avatar)
+        final res = await http
+            .post(
+              uri,
+              body: {
+                'user_id': '$userId',
+                'first_name': firstName,
+                'last_name': lastName,
+                'email': email,
+                'phone_number': phone,
+                if (username != null) 'username': username,
+                if (gender != null) 'gender': gender,
+                if (birthdate != null) 'birthdate': birthdate,
+                if (address != null) 'address': address,
+                if (city != null) 'city': city,
+                if (province != null) 'province': province,
+                if (zipCode != null) 'zip_code': zipCode,
+                if (country != null) 'country': country,
+                if (language != null) 'language': language,
+                if (timezone != null) 'timezone': timezone,
+                if (darkMode != null) 'dark_mode': darkMode ? '1' : '0',
+              },
+            )
+            .timeout(timeout);
 
-      return _parseResponse(res);
+        return _parseResponse(res);
+      }
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
     }
   }
 
-  /// Change password (POST user_change_password.php)
+  /// ✅ Upload avatar only (update_avatar.php)
+  Future<Map<String, dynamic>> uploadAvatar({
+    required int userId,
+    required File avatarFile,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final uri = Uri.parse("${baseUrl}update_avatar.php");
+
+    try {
+      final req =
+          http.MultipartRequest('POST', uri)
+            ..fields['user_id'] = '$userId'
+            ..files.add(
+              await http.MultipartFile.fromPath('avatar', avatarFile.path),
+            );
+
+      final streamed = await req.send().timeout(timeout);
+      final res = await http.Response.fromStream(streamed);
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
+  }
+
+  /// ✅ Change password (user_change_password.php)
   Future<Map<String, dynamic>> changePassword({
     required int userId,
     required String currentPassword,
     required String newPassword,
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    final res = await http
-        .post(
-          Uri.parse('$apiRoot/user_change_password.php'),
-          body: {
-            'user_id': '$userId',
-            'current_password': currentPassword,
-            'new_password': newPassword,
-          },
-        )
-        .timeout(timeout);
+    final uri = Uri.parse("${baseUrl}user_change_password.php");
 
-    return _parseResponse(res);
+    try {
+      final res = await http
+          .post(
+            uri,
+            body: {
+              'user_id': '$userId',
+              'current_password': currentPassword,
+              'new_password': newPassword,
+            },
+          )
+          .timeout(timeout);
+
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": "Error: $e"};
+    }
   }
 
-  /// Common response parser
+  /// ✅ Common JSON response handler
   Map<String, dynamic> _parseResponse(http.Response res) {
     if (res.statusCode != 200) {
       return {
@@ -166,11 +206,13 @@ class UserProfileService {
         "body": res.body,
       };
     }
+
     final raw = res.body.trimLeft();
     final root =
         (raw.startsWith('{') || raw.startsWith('['))
             ? _toMap(jsonDecode(raw))
             : {};
+
     if (root['ok'] == true || root['status'] == 'success') {
       return {
         "status": "success",
@@ -178,6 +220,7 @@ class UserProfileService {
         "data": root['data'] ?? {},
       };
     }
+
     return {
       "success": false,
       "message": root['message'] ?? root['error'] ?? 'Operation failed',

@@ -250,8 +250,8 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
                     "dropoff_location": _dropoffController.text.trim(),
                     "total_amount": _totalAmount,
                     "currency": widget.car['currency'] ?? 'PHP',
-                    "rental_id": result.rentalId,
-                    "status": result.status ?? 'pending',
+                    "rentalid": result.rentalId, // ✅ FIXED key name
+                    "status": result.status ?? 'Pending',
                   },
                 ),
           ),

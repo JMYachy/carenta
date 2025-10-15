@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
 class AdminDashboardStatsService {
-  static const String _endpoint =
-      "http://10.0.2.2/carenta/api/admin_dashboard_stats.php";
+  static final String _endpoint = ServiceBaseUrl.endpoint(
+    "admin_dashboard_stats.php",
+  );
 
   static Future<Map<String, dynamic>> fetchStats() async {
     try {

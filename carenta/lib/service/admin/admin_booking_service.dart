@@ -2,15 +2,20 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
 class AdminBookingService {
-  final String apiRoot;
-  const AdminBookingService({this.apiRoot = 'http://10.0.2.2/carenta/api'});
+  final http.Client _client;
 
-  String get fetchUrl => '$apiRoot/admin_bookings.php';
-  String get actionUrl => '$apiRoot/admin_booking_action.php';
-  String get timelineUrl => '$apiRoot/admin_dashboard_booking_timelines.php';
-  String get activityUrl => '$apiRoot/admin_dashboard_recent_activity.php';
+  AdminBookingService({http.Client? client})
+    : _client = client ?? http.Client();
+
+  String get fetchUrl => ServiceBaseUrl.endpoint("admin_bookings.php");
+  String get actionUrl => ServiceBaseUrl.endpoint("admin_booking_action.php");
+  String get timelineUrl =>
+      ServiceBaseUrl.endpoint("admin_dashboard_booking_timelines.php");
+  String get activityUrl =>
+      ServiceBaseUrl.endpoint("admin_dashboard_recent_activity.php");
 
   /// ✅ Fetch all bookings (optionally filtered by status)
   Future<Map<String, dynamic>> fetchBookings({
@@ -29,7 +34,7 @@ class AdminBookingService {
     );
     debugPrint('GET $uri');
 
-    final res = await http.get(uri);
+    final res = await _client.get(uri);
     if (res.statusCode != 200) {
       return {"success": false, "message": "Server error: ${res.statusCode}"};
     }
@@ -79,7 +84,7 @@ class AdminBookingService {
     };
     debugPrint('POST $uri  body=$body');
 
-    final res = await http.post(uri, body: body);
+    final res = await _client.post(uri, body: body);
     debugPrint('RESP ${res.statusCode}: ${res.body}');
 
     if (res.statusCode != 200) {
@@ -114,7 +119,7 @@ class AdminBookingService {
     };
     debugPrint('POST $uri  body=$body');
 
-    final res = await http.post(uri, body: body);
+    final res = await _client.post(uri, body: body);
     debugPrint('RESP ${res.statusCode}: ${res.body}');
 
     if (res.statusCode != 200) {
@@ -136,7 +141,7 @@ class AdminBookingService {
 
   /// ✅ Dashboard booking timeline
   Future<List<Map<String, dynamic>>> fetchTimeline() async {
-    final res = await http.get(Uri.parse(timelineUrl));
+    final res = await _client.get(Uri.parse(timelineUrl));
     if (res.statusCode != 200) {
       throw Exception("Server error: ${res.statusCode}");
     }
@@ -149,7 +154,7 @@ class AdminBookingService {
 
   /// ✅ Dashboard recent activity
   Future<List<Map<String, dynamic>>> fetchRecentActivity() async {
-    final res = await http.get(Uri.parse(activityUrl));
+    final res = await _client.get(Uri.parse(activityUrl));
     if (res.statusCode != 200) {
       throw Exception("Server error: ${res.statusCode}");
     }
@@ -159,4 +164,6 @@ class AdminBookingService {
     }
     throw Exception(data['message'] ?? "Failed to fetch recent activity");
   }
+
+  void close() => _client.close();
 }
