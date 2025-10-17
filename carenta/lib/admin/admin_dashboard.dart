@@ -53,13 +53,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     });
   }
 
-  Future<void> _logout() async {
-    await SessionService.logout();
-    if (mounted) {
-      Navigator.pushReplacementNamed(context, "/login");
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_loadingSession) {
@@ -87,9 +80,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ),
         ),
+        // ✅ Keep the left menu icon
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {},
+          onPressed: () {
+            // You can open a Drawer or future side menu here
+          },
         ),
         centerTitle: true,
         title: Text(
@@ -101,22 +97,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
             letterSpacing: 1.1,
           ),
         ),
+        // ✅ Replace username + logout with a single notification icon
         actions: [
-          if (_sessionData != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Center(
-                child: Text(
-                  _sessionData?["username"] ?? "Admin",
-                  style: const TextStyle(color: Colors.white),
+          IconButton(
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+            ),
+            tooltip: 'Notifications',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("No new notifications."),
+                  duration: Duration(seconds: 2),
                 ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              onPressed: _logout,
-            ),
-          ],
+              );
+            },
+          ),
+          const SizedBox(width: 8), // for symmetry/padding
         ],
       ),
       body: screens[_selectedIndex],
@@ -170,8 +168,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Widget _buildCarsScreen() => const AdminCarScreen();
-
   Widget _buildBookingsScreen() => const AdminBookingScreen();
-
   Widget _buildProfileScreen() => const AdminProfileScreen();
 }

@@ -7,13 +7,9 @@ import 'package:intl/intl.dart';
 
 class UserCarDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> car;
-  final int userId;
+  final int? userId;
 
-  const UserCarDetailsScreen({
-    super.key,
-    required this.car,
-    required this.userId,
-  });
+  const UserCarDetailsScreen({super.key, required this.car, this.userId});
 
   @override
   State<UserCarDetailsScreen> createState() => _UserCarDetailsScreen();
@@ -37,9 +33,11 @@ class _UserCarDetailsScreen extends State<UserCarDetailsScreen> {
   }
 
   Future<void> _checkFavoriteStatus() async {
+    // If there's no userId (not signed in), skip favorite checks
+    if (widget.userId == null) return;
     try {
       setState(() => isLoadingFav = true);
-      final res = await _favService.list(userId: widget.userId);
+      final res = await _favService.list(userId: widget.userId!);
       if (res['status'] == 'success') {
         final List data = res['data'];
         final found = data.any(
@@ -77,7 +75,7 @@ class _UserCarDetailsScreen extends State<UserCarDetailsScreen> {
     final bool newState = !isFavorite;
     try {
       final res = await _favService.toggle(
-        userId: widget.userId,
+        userId: widget.userId!,
         carId: widget.car['carid'],
         add: newState,
       );
@@ -142,13 +140,7 @@ class _UserCarDetailsScreen extends State<UserCarDetailsScreen> {
     final year = (car['year'] ?? '').toString();
 
     final daily = _num(car['daily_rate'] ?? car['price']);
-    final weekly = _num(car['weekly_rate']);
-    final monthly = _num(car['monthly_rate']);
     final priceFmt = NumberFormat('#,##0.##');
-
-    final type = (car['type'] ?? '—').toString();
-    final seats =
-        car['seatingcap']?.toString() ?? car['seats']?.toString() ?? '—';
     final transmission = (car['transmission'] ?? '—').toString();
     final fuel = (car['fueltype'] ?? '—').toString();
     final color = (car['color'] ?? '—').toString();
@@ -178,7 +170,7 @@ class _UserCarDetailsScreen extends State<UserCarDetailsScreen> {
                       : Icons.favorite_border_rounded,
                   color: isFavorite ? Colors.redAccent : Colors.black87,
                 ),
-                onPressed: _toggleFavorite,
+                onPressed: widget.userId == null ? null : _toggleFavorite,
               ),
         ],
       ),

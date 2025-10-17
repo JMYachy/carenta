@@ -1,7 +1,9 @@
-import 'package:carenta/admin/add_car.dart';
+import 'package:flutter/material.dart';
+import 'package:carenta/admin/car_management/add_car.dart';
+import 'package:carenta/admin/car_management/car_detail_screen.dart';
 import 'package:carenta/service/admin/admin_get_car_service.dart';
 import 'package:carenta/widget/admin_widget/admin_card_builder_listed_car_model.dart';
-import 'package:flutter/material.dart';
+import 'package:carenta/widget/admin_widget/car_model.dart';
 
 class AdminCarScreen extends StatefulWidget {
   const AdminCarScreen({super.key});
@@ -14,8 +16,8 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
   final TextEditingController _searchController = TextEditingController();
   final AdminGetCarService _carService = AdminGetCarService();
 
-  List<Map<String, dynamic>> _allCars = [];
-  List<Map<String, dynamic>> _filteredCars = [];
+  List<CarModel> _allCars = [];
+  List<CarModel> _filteredCars = [];
   bool _isLoading = true;
 
   @override
@@ -27,18 +29,16 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
 
   Future<void> _fetchCars() async {
     setState(() => _isLoading = true);
-
     try {
-      final cars = await _carService.getCars();
+      final carsJson = await _carService.getCars();
+      final cars = carsJson.map<CarModel>((c) => CarModel.fromJson(c)).toList();
       setState(() {
         _allCars = cars;
         _filteredCars = cars;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -51,24 +51,17 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
     setState(() {
       _filteredCars =
           _allCars.where((car) {
-            final name = car['name']?.toLowerCase() ?? '';
-            final brand = car['brand']?.toLowerCase() ?? '';
-            return name.contains(query) || brand.contains(query);
+            return car.model.toLowerCase().contains(query) ||
+                car.manufacturer.toLowerCase().contains(query);
           }).toList();
     });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   void _addCar() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddCar()),
-    ).then((_) => _fetchCars()); // refresh after adding a car
+    ).then((_) => _fetchCars());
   }
 
   @override
@@ -91,10 +84,6 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 16,
-                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -137,20 +126,28 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
                             final car = _filteredCars[index];
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: AdminBuildercardListedcarmodel(
-                                carName: car['name'] ?? 'Unknown',
-                                brand: car['brand'] ?? 'N/A',
-                                imageUrl:
-                                    car['image_url'] ??
-                                    'https://via.placeholder.com/150',
-                                seats:
-                                    int.tryParse(
-                                      car['seats']?.toString() ?? '4',
-                                    ) ??
-                                    4,
-                                transmission:
-                                    car['transmission'] ?? 'Automatic',
-                                pricePerDay: car['price']?.toString() ?? '50',
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              CarDetailScreen(car: car),
+                                    ),
+                                  );
+                                },
+                                child: AdminBuildercardListedcarmodel(
+                                  carName: '${car.manufacturer} ${car.model}',
+                                  brand: car.manufacturer,
+                                  imageUrl:
+                                      car.imageUrls.isNotEmpty
+                                          ? car.imageUrls.first
+                                          : 'https://via.placeholder.com/150',
+                                  seats: int.tryParse(car.seatingCap) ?? 4,
+                                  transmission: car.transmission,
+                                  pricePerDay: car.dailyRate?.toString() ?? '0',
+                                ),
                               ),
                             );
                           },

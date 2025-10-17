@@ -1,5 +1,5 @@
 import 'package:carenta/service/admin/admin_get_car_service.dart';
-import 'package:carenta/user/user_car_detail.dart';
+import 'package:carenta/user/user_car_details_screen.dart';
 import 'package:carenta/widget/user_builder_card_listed_car_model.dart';
 import 'package:flutter/material.dart';
 
@@ -128,7 +128,8 @@ class _UserHomescreenState extends State<UserHomescreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => CarDetails(car: car),
+                                      builder:
+                                          (_) => UserCarDetailsScreen(car: car),
                                     ),
                                   );
                                 },
