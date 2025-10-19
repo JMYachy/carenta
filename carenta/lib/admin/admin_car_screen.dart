@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:carenta/admin/car_management/add_car.dart';
+import 'package:flutter/material.dart';
 import 'package:carenta/admin/car_management/car_detail_screen.dart';
 import 'package:carenta/service/admin/admin_get_car_service.dart';
 import 'package:carenta/widget/admin_widget/admin_card_builder_listed_car_model.dart';
@@ -13,150 +13,109 @@ class AdminCarScreen extends StatefulWidget {
 }
 
 class _AdminCarScreenState extends State<AdminCarScreen> {
-  final TextEditingController _searchController = TextEditingController();
   final AdminGetCarService _carService = AdminGetCarService();
-
-  List<CarModel> _allCars = [];
-  List<CarModel> _filteredCars = [];
-  bool _isLoading = true;
+  List<CarModel> _cars = [];
+  List<CarModel> _filtered = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchCars();
-    _searchController.addListener(_filterCars);
+    _loadCars();
   }
 
-  Future<void> _fetchCars() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadCars() async {
+    setState(() => _loading = true);
     try {
-      final carsJson = await _carService.getCars();
-      final cars = carsJson.map<CarModel>((c) => CarModel.fromJson(c)).toList();
+      final result = await _carService.getCars();
+      final cars = result.map<CarModel>((e) => CarModel.fromJson(e)).toList();
       setState(() {
-        _allCars = cars;
-        _filteredCars = cars;
-        _isLoading = false;
+        _cars = cars;
+        _filtered = cars;
+        _loading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error fetching cars: $e")));
+      setState(() => _loading = false);
     }
   }
 
-  void _filterCars() {
-    final query = _searchController.text.toLowerCase();
+  void _filter(String query) {
+    final lower = query.toLowerCase();
     setState(() {
-      _filteredCars =
-          _allCars.where((car) {
-            return car.model.toLowerCase().contains(query) ||
-                car.manufacturer.toLowerCase().contains(query);
-          }).toList();
+      _filtered = _cars.where((c) {
+        return c.manufacturer.toLowerCase().contains(lower) ||
+            c.model.toLowerCase().contains(lower);
+      }).toList();
     });
-  }
-
-  void _addCar() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddCar()),
-    ).then((_) => _fetchCars());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 🔍 Search bar + Add button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Search cars...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.add_circle,
-                      color: Colors.blue,
-                      size: 32,
-                    ),
-                    onPressed: _addCar,
-                    tooltip: 'Add Car',
-                  ),
-                ],
-              ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Padding(
+  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+  child: Row(
+    children: [
+      Expanded(
+        child: TextField(
+          onChanged: _filter,
+          decoration: InputDecoration(
+            hintText: 'Search cars...',
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
             ),
-
-            // 🚗 Car list
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _filteredCars.isEmpty
-                      ? const Center(
-                        child: Text(
-                          'No cars found.',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      )
-                      : RefreshIndicator(
-                        onRefresh: _fetchCars,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredCars.length,
-                          itemBuilder: (context, index) {
-                            final car = _filteredCars[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder:
-                                          (context) =>
-                                              CarDetailScreen(car: car),
-                                    ),
-                                  );
-                                },
-                                child: AdminBuildercardListedcarmodel(
-                                  carName: '${car.manufacturer} ${car.model}',
-                                  brand: car.manufacturer,
-                                  imageUrl:
-                                      car.imageUrls.isNotEmpty
-                                          ? car.imageUrls.first
-                                          : 'https://via.placeholder.com/150',
-                                  seats: int.tryParse(car.seatingCap) ?? 4,
-                                  transmission: car.transmission,
-                                  pricePerDay: car.dailyRate?.toString() ?? '0',
-                                ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      IconButton(
+        icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddCar()),
+          ).then((_) => _loadCars());
+        },
+        tooltip: 'Add Car',
+      ),
+    ],
+  ),
+),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadCars,
+                    child: ListView.builder(
+                      itemCount: _filtered.length,
+                      itemBuilder: (context, index) {
+                        final car = _filtered[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CarDetailScreen(car: car),
                               ),
                             );
                           },
-                        ),
-                      ),
+                          child: AdminBuildercardListedcarmodel(car: car),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
     );
   }
 }
