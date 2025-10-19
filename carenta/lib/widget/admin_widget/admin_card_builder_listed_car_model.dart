@@ -35,7 +35,7 @@ class AdminBuildercardListedcarmodel extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0C1C3A),
+        color: Colors.white, // ✅ White background for the card
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -56,15 +56,18 @@ class AdminBuildercardListedcarmodel extends StatelessWidget {
                 child: Text(
                   '${car.manufacturer} ${car.model}',
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 17),
+                    color: Colors.black, // ✅ Changed from white to black
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor,
                   borderRadius: BorderRadius.circular(12),
@@ -82,7 +85,7 @@ class AdminBuildercardListedcarmodel extends StatelessWidget {
           ),
           Text(
             '${car.year} • ${car.type}',
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
           ),
 
           const SizedBox(height: 10),
@@ -101,9 +104,13 @@ class AdminBuildercardListedcarmodel extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stack) {
                   return Container(
-                    color: const Color(0xFF0F284E),
+                    color: const Color(0xFF0D47A1).withOpacity(0.2),
                     alignment: Alignment.center,
-                    child: const Icon(Icons.directions_car, color: Colors.white24, size: 50),
+                    child: const Icon(
+                      Icons.directions_car,
+                      color: Colors.black26,
+                      size: 50,
+                    ),
                   );
                 },
               ),
@@ -128,9 +135,18 @@ class AdminBuildercardListedcarmodel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _Price(label: 'Daily', value: '${_currencySymbol}${car.dailyRate ?? 0}'),
-              _Price(label: 'Weekly', value: '${_currencySymbol}${car.weeklyRate ?? 0}'),
-              _Price(label: 'Monthly', value: '${_currencySymbol}${car.monthlyRate ?? 0}'),
+              _Price(
+                label: 'Daily',
+                value: '${_currencySymbol}${car.dailyRate ?? 0}',
+              ),
+              _Price(
+                label: 'Weekly',
+                value: '${_currencySymbol}${car.weeklyRate ?? 0}',
+              ),
+              _Price(
+                label: 'Monthly',
+                value: '${_currencySymbol}${car.monthlyRate ?? 0}',
+              ),
             ],
           ),
         ],
@@ -148,9 +164,16 @@ class _Info extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.greenAccent, size: 16),
+        Icon(
+          icon,
+          color: const Color(0xFF0D47A1),
+          size: 16,
+        ), // ✅ Dark blue icon
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.black, fontSize: 13),
+        ), // ✅ Black text
       ],
     );
   }
@@ -165,11 +188,17 @@ class _Price extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.black54, fontSize: 13),
+        ),
         Text(
           value,
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+            color: Colors.black, // ✅ Black price text
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
         ),
       ],
     );
