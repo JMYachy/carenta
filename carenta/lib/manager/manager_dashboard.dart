@@ -1,24 +1,23 @@
-import 'package:carenta/admin/admin_booking_screen.dart';
-import 'package:carenta/admin/admin_car_screen.dart';
-import 'package:carenta/admin/home_screen/admin_homescreen.dart';
-import 'package:carenta/admin/admin_profilescreen.dart';
-import 'package:carenta/service/admin/admin_dashboard_stats_service.dart';
+import 'package:carenta/manager/manager_homescreen.dart';
+import 'package:carenta/manager/manager_profile_screen.dart';
+import 'package:carenta/manager/manager_user_vertification_screen.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'package:carenta/service/admin/admin_dashboard_stats_service.dart';
 import 'package:flutter/material.dart';
 
-class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+class ManagerDashboard extends StatefulWidget {
+  const ManagerDashboard({super.key});
 
   @override
-  State<AdminDashboard> createState() => _AdminDashboardState();
+  State<ManagerDashboard> createState() => _ManagerDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _ManagerDashboardState extends State<ManagerDashboard> {
   int _selectedIndex = 0;
   Map<String, dynamic>? _sessionData;
   bool _loadingSession = true;
 
-  final List<String> _titles = ['Home', 'Cars', 'Bookings', 'Profile'];
+  final List<String> _titles = ['Home', 'Verifications', 'Profile'];
 
   @override
   void initState() {
@@ -38,14 +37,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
         if (mounted) Navigator.pushReplacementNamed(context, "/login");
       }
     } catch (e) {
-      debugPrint("Session check error: $e");
       if (mounted) Navigator.pushReplacementNamed(context, "/login");
     }
   }
 
   void _onTabTapped(int index) {
     setState(() => _selectedIndex = index);
-    Navigator.pop(context); // close sidebar when navigating
+    Navigator.pop(context); // close drawer if open
   }
 
   @override
@@ -54,38 +52,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final username = _sessionData?["username"] ?? "Admin";
+    final username = _sessionData?["username"] ?? "Manager";
 
     final List<Widget> screens = [
       _buildLiveHome(),
-      _buildCarsScreen(),
-      _buildBookingsScreen(),
-      _buildProfileScreen(),
+      const ManagerUserVerificationScreen(),
+      const ManagerProfileScreen(),
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        elevation: 4,
-        backgroundColor: const Color(0xFF0077B6),
         title: Text(
           _titles[_selectedIndex],
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 20,
-            letterSpacing: 1.1,
           ),
         ),
         centerTitle: true,
+        backgroundColor: const Color(0xFF0077B6),
       ),
 
-      // ✅ Drawer Sidebar
+      // ✅ Sidebar Drawer
       drawer: Drawer(
         child: Container(
           color: const Color(0xFFE9F1F7),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DrawerHeader(
                 decoration: const BoxDecoration(
@@ -95,72 +88,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     end: Alignment.bottomRight,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const CircleAvatar(
                       radius: 30,
                       backgroundColor: Colors.white,
                       child: Icon(
-                        Icons.admin_panel_settings,
-                        size: 40,
+                        Icons.manage_accounts,
                         color: Color(0xFF0077B6),
+                        size: 35,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      username,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            username,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const Text(
+                            "Manager",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "Administrator",
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ),
               ),
-
-              // Navigation Options
               _drawerItem(Icons.bar_chart, "Home", 0),
-              _drawerItem(Icons.directions_car, "Cars", 1),
-              _drawerItem(Icons.book_online, "Bookings", 2),
+              _drawerItem(Icons.verified_user, "User Verifications", 1),
               const Divider(height: 1),
-
-              // New management options
-              ListTile(
-                leading: const Icon(
-                  Icons.person_add_alt_1,
-                  color: Color(0xFF0077B6),
-                ),
-                title: const Text("Create Admin"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, "/create_admin");
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.manage_accounts,
-                  color: Color(0xFF0077B6),
-                ),
-                title: const Text("Create Manager"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, "/create_manager");
-                },
-              ),
-              const Divider(height: 1),
-
-              _drawerItem(Icons.person, "Profile", 3),
-
+              _drawerItem(Icons.person, "Profile", 2),
               const Spacer(),
-
-              // Logout button at bottom
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: ElevatedButton.icon(
@@ -173,8 +141,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   ),
                   onPressed: () async {
                     await SessionService.logout();
-                    if (mounted)
+                    if (mounted) {
                       Navigator.pushReplacementNamed(context, "/login");
+                    }
                   },
                   icon: const Icon(Icons.logout, color: Colors.white),
                   label: const Text(
@@ -202,12 +171,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.directions_car),
-            label: 'Cars',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.book_online),
-            label: 'Bookings',
+            icon: Icon(Icons.verified_user),
+            label: 'Verifications',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
@@ -238,7 +203,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  /// ✅ Live home screen
+  /// ✅ Live Home Dashboard
   Widget _buildLiveHome() {
     return StreamBuilder<Map<String, dynamic>>(
       stream: AdminDashboardStatsService.pollStats(
@@ -248,24 +213,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-
         final stats = snapshot.data!;
         if (stats["success"] != true) {
           return Center(child: Text("Error: ${stats['message']}"));
         }
-
         final data = stats["data"] ?? {};
-        return AdminHomeScreen(
+        return ManagerHomeScreen(
           totalUsers: data["total_users"] ?? 0,
           totalCars: data["total_cars"] ?? 0,
           totalBookings: data["total_bookings"] ?? 0,
-          totalRevenue: (data["total_revenue"] ?? 0).toDouble(),
         );
       },
     );
   }
-
-  Widget _buildCarsScreen() => const AdminCarScreen();
-  Widget _buildBookingsScreen() => const AdminBookingScreen();
-  Widget _buildProfileScreen() => const AdminProfileScreen();
 }

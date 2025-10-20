@@ -4,7 +4,7 @@ import 'package:carenta/service/config/service_base_url.dart';
 import 'package:http/http.dart' as http;
 
 class SignupService {
-  static final String _endpoint = ServiceBaseUrl.endpoint("signup.php");
+  static final String _endpoint = ServiceBaseUrl.endpoint("register_user.php");
 
   static Future<Map<String, dynamic>> signupUser(
     String password,

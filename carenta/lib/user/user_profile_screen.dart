@@ -1,4 +1,5 @@
 import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'package:carenta/user/user_vertification_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:carenta/service/user/user_profile_service.dart';
 import 'package:carenta/main/splash_screen.dart';
@@ -293,7 +294,79 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 _Header(profile: profile),
                 const SizedBox(height: 16),
 
-                // Profile card
+                // 🔹 Account Verification
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Account Verification",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              profile.isVerified
+                                  ? Icons.verified
+                                  : Icons.info_outline,
+                              color:
+                                  profile.isVerified
+                                      ? Colors.green
+                                      : Colors.orange,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              profile.isVerified
+                                  ? "Verified ✅"
+                                  : (profile.verificationStatus ??
+                                      "Not Verified"),
+                              style: TextStyle(
+                                color:
+                                    profile.isVerified
+                                        ? Colors.green
+                                        : Colors.orange,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (!profile.isVerified)
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              icon: const Icon(Icons.upload_file),
+                              label: const Text("Submit ID for Verification"),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (_) => UserVertificationScreen(
+                                          userId: _userId!,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Profile Info Card
                 Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -370,7 +443,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                 const SizedBox(height: 20),
 
-                // Change password card
+                // Change Password Section
                 Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -424,12 +497,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             label: Text(
                               _changingPw ? "Updating..." : "Update Password",
                             ),
-                            style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
                             onPressed: _changingPw ? null : _changePassword,
                           ),
                         ),
@@ -479,7 +546,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 }
 
-/* ==================== Custom PasswordField ==================== */
+/* ==================== Password Field ==================== */
 class _PasswordField extends StatefulWidget {
   final TextEditingController controller;
   final String label;
@@ -489,14 +556,12 @@ class _PasswordField extends StatefulWidget {
     required this.label,
     required this.icon,
   });
-
   @override
   State<_PasswordField> createState() => _PasswordFieldState();
 }
 
 class _PasswordFieldState extends State<_PasswordField> {
   bool _obscure = true;
-
   @override
   Widget build(BuildContext context) {
     return TextField(
@@ -517,7 +582,7 @@ class _PasswordFieldState extends State<_PasswordField> {
   }
 }
 
-/* ==================== Model ==================== */
+/* ==================== User Profile Model ==================== */
 class _UserProfile {
   final int userId;
   final String username;
@@ -536,6 +601,11 @@ class _UserProfile {
   final String? language;
   final String? timezone;
   final bool darkMode;
+  final bool isVerified;
+  final String? verificationStatus;
+  final String? idType;
+  final String? idFrontUrl;
+  final String? idBackUrl;
 
   _UserProfile({
     required this.userId,
@@ -555,6 +625,11 @@ class _UserProfile {
     this.language,
     this.timezone,
     this.darkMode = false,
+    this.isVerified = false,
+    this.verificationStatus,
+    this.idType,
+    this.idFrontUrl,
+    this.idBackUrl,
   });
 
   static DateTime? _toDate(dynamic v) {
@@ -585,6 +660,11 @@ class _UserProfile {
       language: m['language']?.toString(),
       timezone: m['timezone']?.toString(),
       darkMode: (m['dark_mode']?.toString() == '1'),
+      isVerified: (m['is_verified']?.toString() == '1'),
+      verificationStatus: m['verification_status']?.toString(),
+      idType: m['id_type']?.toString(),
+      idFrontUrl: m['id_front_url']?.toString(),
+      idBackUrl: m['id_back_url']?.toString(),
     );
   }
 
@@ -594,6 +674,7 @@ class _UserProfile {
   }
 }
 
+/* ==================== Profile Header ==================== */
 class _Header extends StatelessWidget {
   final _UserProfile profile;
   const _Header({required this.profile});
