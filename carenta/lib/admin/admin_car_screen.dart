@@ -58,40 +58,41 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
           : Column(
               children: [
                 Padding(
-  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-  child: Row(
-    children: [
-      Expanded(
-        child: TextField(
-          onChanged: _filter,
-          decoration: InputDecoration(
-            hintText: 'Search cars...',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 12),
-      IconButton(
-        icon: const Icon(Icons.add_circle, color: Colors.blue, size: 32),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddCar()),
-          ).then((_) => _loadCars());
-        },
-        tooltip: 'Add Car',
-      ),
-    ],
-  ),
-),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          onChanged: _filter,
+                          decoration: InputDecoration(
+                            hintText: 'Search cars...',
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                                vertical: 0, horizontal: 16),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle,
+                            color: Colors.blue, size: 32),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AddCar()),
+                          ).then((_) => _loadCars());
+                        },
+                        tooltip: 'Add Car',
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: _loadCars,
@@ -100,13 +101,27 @@ class _AdminCarScreenState extends State<AdminCarScreen> {
                       itemBuilder: (context, index) {
                         final car = _filtered[index];
                         return GestureDetector(
-                          onTap: () {
-                            Navigator.push(
+                          onTap: () async {
+                            // 👇 Await the result from CarDetailScreen
+                            final updatedCar = await Navigator.push<CarModel>(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => CarDetailScreen(car: car),
                               ),
                             );
+
+                            // 👇 If the user saved edits, update this car in the list
+                            if (updatedCar != null) {
+                              setState(() {
+                                final int i = _cars.indexWhere(
+                                    (c) => c.carId == updatedCar.carId);
+                                if (i != -1) _cars[i] = updatedCar;
+
+                                final int fi = _filtered.indexWhere(
+                                    (c) => c.carId == updatedCar.carId);
+                                if (fi != -1) _filtered[fi] = updatedCar;
+                              });
+                            }
                           },
                           child: AdminBuildercardListedcarmodel(car: car),
                         );
