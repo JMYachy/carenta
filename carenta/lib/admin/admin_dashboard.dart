@@ -15,7 +15,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
-  Map<String, dynamic>? _sessionData;
+  Map<String, dynamic>? _sessionData; // store session info
   bool _loadingSession = true;
 
   final List<String> _titles = ['Home', 'Cars', 'Bookings', 'Profile'];
@@ -35,17 +35,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
           _loadingSession = false;
         });
       } else {
-        if (mounted) Navigator.pushReplacementNamed(context, "/login");
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, "/login");
+        }
       }
     } catch (e) {
       debugPrint("Session check error: $e");
-      if (mounted) Navigator.pushReplacementNamed(context, "/login");
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, "/login");
+      }
     }
   }
 
   void _onTabTapped(int index) {
-    setState(() => _selectedIndex = index);
-    Navigator.pop(context); // close sidebar when navigating
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
@@ -54,10 +59,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final username = _sessionData?["username"] ?? "Admin";
-
     final List<Widget> screens = [
-      _buildLiveHome(),
+      _buildLiveHome(), // ✅ now uses live polling
       _buildCarsScreen(),
       _buildBookingsScreen(),
       _buildProfileScreen(),
@@ -67,7 +70,24 @@ class _AdminDashboardState extends State<AdminDashboard> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 4,
-        backgroundColor: const Color(0xFF0077B6),
+        backgroundColor: Colors.transparent,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF90E0EF), Color(0xFF0077B6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        // ✅ Keep the left menu icon
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () {
+            // You can open a Drawer or future side menu here
+          },
+        ),
+        centerTitle: true,
         title: Text(
           _titles[_selectedIndex],
           style: const TextStyle(
@@ -77,122 +97,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
             letterSpacing: 1.1,
           ),
         ),
-        centerTitle: true,
-      ),
-
-      // ✅ Drawer Sidebar
-      drawer: Drawer(
-        child: Container(
-          color: const Color(0xFFE9F1F7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DrawerHeader(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0077B6), Color(0xFF90E0EF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+        // ✅ Replace username + logout with a single notification icon
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: Colors.white,
+            ),
+            tooltip: 'Notifications',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("No new notifications."),
+                  duration: Duration(seconds: 2),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const CircleAvatar(
-                      radius: 30,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.admin_panel_settings,
-                        size: 40,
-                        color: Color(0xFF0077B6),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      username,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      "Administrator",
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Navigation Options
-              _drawerItem(Icons.bar_chart, "Home", 0),
-              _drawerItem(Icons.directions_car, "Cars", 1),
-              _drawerItem(Icons.book_online, "Bookings", 2),
-              const Divider(height: 1),
-
-              // New management options
-              ListTile(
-                leading: const Icon(
-                  Icons.person_add_alt_1,
-                  color: Color(0xFF0077B6),
-                ),
-                title: const Text("Create Admin"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, "/create_admin");
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.manage_accounts,
-                  color: Color(0xFF0077B6),
-                ),
-                title: const Text("Create Manager"),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, "/create_manager");
-                },
-              ),
-              const Divider(height: 1),
-
-              _drawerItem(Icons.person, "Profile", 3),
-
-              const Spacer(),
-
-              // Logout button at bottom
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5722),
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () async {
-                    await SessionService.logout();
-                    if (mounted)
-                      Navigator.pushReplacementNamed(context, "/login");
-                  },
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: const Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              );
+            },
           ),
-        ),
+          const SizedBox(width: 8), // for symmetry/padding
+        ],
       ),
-
       body: screens[_selectedIndex],
-
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onTabTapped,
@@ -215,30 +140,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _drawerItem(IconData icon, String title, int index) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color:
-            _selectedIndex == index
-                ? const Color(0xFFFF5722)
-                : const Color(0xFF0077B6),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: FontWeight.w500,
-          color:
-              _selectedIndex == index
-                  ? const Color(0xFFFF5722)
-                  : Colors.black87,
-        ),
-      ),
-      onTap: () => _onTabTapped(index),
-    );
-  }
-
-  /// ✅ Live home screen
+  /// ✅ Live home screen with StreamBuilder
   Widget _buildLiveHome() {
     return StreamBuilder<Map<String, dynamic>>(
       stream: AdminDashboardStatsService.pollStats(

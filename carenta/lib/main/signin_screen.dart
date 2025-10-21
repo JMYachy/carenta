@@ -1,8 +1,8 @@
 import 'package:carenta/admin/admin_dashboard.dart';
-import 'package:carenta/manager/manager_dashboard.dart';
-import 'package:carenta/user/user_dashboard.dart';
 import 'package:carenta/main/signup_screen.dart';
+import 'package:carenta/manager/manager_dashboard.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'package:carenta/user/user_dashboard.dart';
 import 'package:flutter/material.dart';
 
 class SigninScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class SigninScreen extends StatefulWidget {
 }
 
 class _SigninScreenState extends State<SigninScreen> {
-  final _loginController = TextEditingController();
+  final _loginController = TextEditingController(); // email for now
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
@@ -26,44 +26,37 @@ class _SigninScreenState extends State<SigninScreen> {
       _errorMessage = null;
     });
 
-    final login = _loginController.text.trim();
+    final email = _loginController.text.trim();
     final password = _passwordController.text;
 
-    if (login.isEmpty || password.isEmpty) {
+    if (email.isEmpty || password.isEmpty) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Please enter your username/email/phone and password';
+        _errorMessage = 'Please enter your email and password';
       });
       return;
     }
 
     try {
-      final result = await SessionService.login(login, password);
+      final result = await SessionService.login(email, password);
       setState(() => _isLoading = false);
 
       if (result['success'] == true) {
         final role = (result['data']?['role'] ?? '').toLowerCase();
 
-        // Decide which dashboard to load
         Widget targetScreen;
         if (role == 'admin') {
           targetScreen = const AdminDashboard();
         } else if (role == 'manager') {
           targetScreen = const ManagerDashboard();
-        } else if (role == 'renter' || role == 'guest') {
-          targetScreen = const UserDashboard();
         } else {
-          setState(() {
-            _errorMessage =
-                "Unknown role: $role. Please contact the system administrator.";
-          });
-          return;
+          targetScreen = const UserDashboard();
         }
 
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => targetScreen),
+          MaterialPageRoute(builder: (context) => targetScreen),
         );
       } else {
         setState(() => _errorMessage = result['message'] ?? 'Login failed');
@@ -82,21 +75,17 @@ class _SigninScreenState extends State<SigninScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // App Logo Section
           Expanded(
             flex: 1,
             child: Center(
               child: Image.asset(
                 'assets/logo/logo_carenta.png',
                 fit: BoxFit.contain,
-                height: 300,
+                height: 350,
               ),
             ),
           ),
-
-          // Sign-in Form Section
           Expanded(
-            flex: 1,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -115,92 +104,55 @@ class _SigninScreenState extends State<SigninScreen> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        const Text(
-                          'Sign In to Carenta',
-                          style: TextStyle(
-                            fontSize: 22,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
                         _buildTextField(
                           controller: _loginController,
-                          label: 'Email / Username / Phone',
-                          icon: Icons.person,
+                          label: 'Email',
+                          icon: Icons.email,
                         ),
-                        const SizedBox(height: 16),
-
+                        const SizedBox(height: 20),
                         _buildTextField(
                           controller: _passwordController,
                           label: 'Password',
                           icon: Icons.lock,
                           isPassword: true,
                         ),
-                        const SizedBox(height: 16),
-
+                        const SizedBox(height: 20),
                         if (_errorMessage != null)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: const TextStyle(color: Colors.red),
                             ),
                           ),
-
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleSignIn,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF0077B6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 14,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _handleSignIn,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF0077B6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child:
-                                _isLoading
-                                    ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Color(0xFF0077B6),
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : const Text(
-                                      'Sign In',
-                                      style: TextStyle(fontSize: 18),
-                                    ),
                           ),
+                          child: _isLoading
+                              ? const CircularProgressIndicator()
+                              : const Text('Sign In',
+                                  style: TextStyle(fontSize: 18)),
                         ),
-                        const SizedBox(height: 16),
-
+                        const SizedBox(height: 10),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const SignupScreen(),
-                              ),
+                                  builder: (_) => const SignupScreen()),
                             );
                           },
                           child: const Text(
-                            'Don’t have an account? Sign Up',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            'Don\'t have an account? Sign Up',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
                       ],
@@ -234,18 +186,17 @@ class _SigninScreenState extends State<SigninScreen> {
           borderSide: BorderSide.none,
         ),
         prefixIcon: Icon(icon, color: const Color(0xFF0077B6)),
-        suffixIcon:
-            isPassword
-                ? IconButton(
-                  icon: Icon(
-                    _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                    color: const Color(0xFF0077B6),
-                  ),
-                  onPressed: () {
-                    setState(() => _passwordVisible = !_passwordVisible);
-                  },
-                )
-                : null,
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: const Color(0xFF0077B6),
+                ),
+                onPressed: () {
+                  setState(() => _passwordVisible = !_passwordVisible);
+                },
+              )
+            : null,
       ),
       style: const TextStyle(color: Colors.black),
     );
