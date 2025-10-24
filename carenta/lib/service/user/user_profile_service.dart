@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:carenta/service/config/service_base_url.dart';
 
 class UserProfileService {
-  final String baseUrl = ServiceBaseUrl.baseUrl;
-
   Map<String, dynamic> _toMap(dynamic v) {
     if (v is Map<String, dynamic>) return v;
     if (v is Map) return v.map((k, val) => MapEntry(k.toString(), val));
@@ -18,11 +16,12 @@ class UserProfileService {
     Duration timeout = const Duration(seconds: 12),
   }) async {
     final uri = Uri.parse(
-      "${baseUrl}user_profile.php",
+      ServiceBaseUrl.endpoint('user_profile.php'),
     ).replace(queryParameters: {'user_id': '$userId'});
 
     try {
       final res = await http.get(uri).timeout(timeout);
+
       if (res.statusCode != 200) {
         return {
           "success": false,
@@ -68,12 +67,12 @@ class UserProfileService {
     required String email,
     required String phone,
     String? username,
-    String? gender, // 'Male' | 'Female' | 'Other'
-    String? birthdate, // 'YYYY-MM-DD'
-    String? address, // street_address
+    String? gender,
+    String? birthdate,
+    String? address,
     String? city,
-    String? province, // state
-    String? zipCode, // postal_code
+    String? province,
+    String? zipCode,
     String? country,
     String? language,
     String? timezone,
@@ -81,11 +80,11 @@ class UserProfileService {
     File? avatarFile,
     Duration timeout = const Duration(seconds: 20),
   }) async {
-    final uri = Uri.parse("${baseUrl}user_profile_update.php");
+    final uri = Uri.parse(ServiceBaseUrl.endpoint('user_profile_update.php'));
 
     try {
       if (avatarFile != null) {
-        // Multipart form for avatar upload
+        // ✅ Multipart form for avatar upload
         final req =
             http.MultipartRequest('POST', uri)
               ..fields.addAll({
@@ -114,7 +113,7 @@ class UserProfileService {
         final res = await http.Response.fromStream(streamed);
         return _parseResponse(res);
       } else {
-        // Regular POST (no avatar)
+        // ✅ Regular POST (no avatar)
         final res = await http
             .post(
               uri,
@@ -152,7 +151,7 @@ class UserProfileService {
     required File avatarFile,
     Duration timeout = const Duration(seconds: 15),
   }) async {
-    final uri = Uri.parse("${baseUrl}update_avatar.php");
+    final uri = Uri.parse(ServiceBaseUrl.endpoint('update_avatar.php'));
 
     try {
       final req =
@@ -177,7 +176,7 @@ class UserProfileService {
     required String newPassword,
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    final uri = Uri.parse("${baseUrl}user_change_password.php");
+    final uri = Uri.parse(ServiceBaseUrl.endpoint('user_change_password.php'));
 
     try {
       final res = await http

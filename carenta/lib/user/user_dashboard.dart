@@ -1,4 +1,4 @@
-import 'package:carenta/user/user_booking_screen.dart';
+import 'package:carenta/user/check_booking/user_booking_screen.dart';
 import 'package:carenta/user/user_favorite_screen.dart';
 import 'package:carenta/user/user_homescreen.dart';
 import 'package:carenta/user/user_profile_screen.dart';
@@ -14,12 +14,7 @@ class UserDashboard extends StatefulWidget {
 class _UserDashboardState extends State<UserDashboard> {
   int _selectedIndex = 0;
 
-  final List<String> _titles = [
-    'Home',
-    'Bookings',
-    'Favorites',
-    'Profile',
-  ];
+  final List<String> _titles = ['Home', 'Bookings', 'Favorites', 'Profile'];
 
   void _onTabTapped(int index) {
     setState(() {
@@ -97,7 +92,6 @@ class _UserDashboardState extends State<UserDashboard> {
   Widget _buildEmptyHome() {
     return const UserHomescreen();
   }
-
 
   Widget _buildBookingsScreen() => const UserBookingScreen();
 

@@ -14,8 +14,8 @@ class UserPaymentService {
     Duration timeout = const Duration(seconds: 15),
   }) async {
     try {
-      // ✅ Use production base URL (centralized)
-      final uri = Uri.parse('${ServiceBaseUrl.baseUrl}create_payment.php');
+      // ✅ Use centralized API endpoint builder
+      final uri = Uri.parse(ServiceBaseUrl.endpoint('create_payment.php'));
 
       final body = {
         'user_id': '$userId',
@@ -26,18 +26,15 @@ class UserPaymentService {
         'status': status,
       };
 
-      // ✅ Log outgoing request for debugging
       print('📤 [UserPaymentService] Sending POST → $uri');
       print('🔸 Body: $body');
 
-      // ✅ Execute POST request
       final response = await http.post(uri, body: body).timeout(timeout);
 
       print(
         '📥 [UserPaymentService] Response (${response.statusCode}): ${response.body}',
       );
 
-      // ✅ Handle non-200 responses
       if (response.statusCode != 200) {
         return {
           "ok": false,
@@ -46,7 +43,6 @@ class UserPaymentService {
         };
       }
 
-      // ✅ Parse response safely
       final decoded = jsonDecode(response.body);
       if (decoded is Map<String, dynamic>) {
         if (decoded['ok'] == true) {

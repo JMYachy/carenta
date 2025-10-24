@@ -1,6 +1,6 @@
 import 'package:carenta/admin/car_management/add_car.dart';
 import 'package:carenta/admin/car_management/car_detail_screen.dart';
-import 'package:carenta/service/admin/admin_get_car_service.dart';
+import 'package:carenta/service/Shared/get_car_service.dart';
 import 'package:carenta/widget/admin_widget/admin_card_builder_listed_car_model.dart';
 import 'package:carenta/widget/admin_widget/car_model.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +13,7 @@ class ManagerCarScreen extends StatefulWidget {
 }
 
 class _ManagerCarScreenState extends State<ManagerCarScreen> {
-  final AdminGetCarService _carService = AdminGetCarService();
+  final GetCarService _carService = GetCarService();
   List<CarModel> _cars = [];
   List<CarModel> _filtered = [];
   bool _loading = true;
@@ -42,10 +42,11 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
   void _filter(String query) {
     final lower = query.toLowerCase();
     setState(() {
-      _filtered = _cars.where((c) {
-        return c.manufacturer.toLowerCase().contains(lower) ||
-            c.model.toLowerCase().contains(lower);
-      }).toList();
+      _filtered =
+          _cars.where((c) {
+            return c.manufacturer.toLowerCase().contains(lower) ||
+                c.model.toLowerCase().contains(lower);
+          }).toList();
     });
   }
 
@@ -53,84 +54,92 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: _filter,
-                          decoration: InputDecoration(
-                            hintText: 'Search cars...',
-                            prefixIcon: const Icon(Icons.search),
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                                vertical: 0, horizontal: 16),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+      body:
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            onChanged: _filter,
+                            decoration: InputDecoration(
+                              hintText: 'Search cars...',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 0,
+                                horizontal: 16,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle,
-                            color: Colors.blue, size: 32),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AddCar()),
-                          ).then((_) => _loadCars());
-                        },
-                        tooltip: 'Add Car',
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadCars,
-                    child: ListView.builder(
-                      itemCount: _filtered.length,
-                      itemBuilder: (context, index) {
-                        final car = _filtered[index];
-                        return GestureDetector(
-                          onTap: () async {
-                            // 👇 Await the result from CarDetailScreen
-                            final updatedCar = await Navigator.push<CarModel>(
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.add_circle,
+                            color: Colors.blue,
+                            size: 32,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => CarDetailScreen(car: car),
-                              ),
-                            );
-
-                            // 👇 If the user saved edits, update this car in the list
-                            if (updatedCar != null) {
-                              setState(() {
-                                final int i = _cars.indexWhere(
-                                    (c) => c.carId == updatedCar.carId);
-                                if (i != -1) _cars[i] = updatedCar;
-
-                                final int fi = _filtered.indexWhere(
-                                    (c) => c.carId == updatedCar.carId);
-                                if (fi != -1) _filtered[fi] = updatedCar;
-                              });
-                            }
+                              MaterialPageRoute(builder: (_) => const AddCar()),
+                            ).then((_) => _loadCars());
                           },
-                          child: AdminBuildercardListedcarmodel(car: car),
-                        );
-                      },
+                          tooltip: 'Add Car',
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: _loadCars,
+                      child: ListView.builder(
+                        itemCount: _filtered.length,
+                        itemBuilder: (context, index) {
+                          final car = _filtered[index];
+                          return GestureDetector(
+                            onTap: () async {
+                              // 👇 Await the result from CarDetailScreen
+                              final updatedCar = await Navigator.push<CarModel>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CarDetailScreen(car: car),
+                                ),
+                              );
+
+                              // 👇 If the user saved edits, update this car in the list
+                              if (updatedCar != null) {
+                                setState(() {
+                                  final int i = _cars.indexWhere(
+                                    (c) => c.carId == updatedCar.carId,
+                                  );
+                                  if (i != -1) _cars[i] = updatedCar;
+
+                                  final int fi = _filtered.indexWhere(
+                                    (c) => c.carId == updatedCar.carId,
+                                  );
+                                  if (fi != -1) _filtered[fi] = updatedCar;
+                                });
+                              }
+                            },
+                            child: AdminBuildercardListedcarmodel(car: car),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
     );
   }
 }

@@ -19,18 +19,18 @@ class CarPage {
   });
 }
 
-class AdminGetCarService {
+class GetCarService {
   final http.Client _client;
 
-  AdminGetCarService({http.Client? client}) : _client = client ?? http.Client();
+  GetCarService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Helper to build absolute URLs for images and files
+  /// ✅ Helper to build absolute URLs for images and files
   String _resolveUrl(dynamic path) {
     if (path == null) return '';
     final p = path.toString().trim();
     if (p.isEmpty) return '';
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
-    return '${ServiceBaseUrl.baseUrl}$p';
+    return ServiceBaseUrl.file(p); // ✅ Use correct helper for assets
   }
 
   double? _toNum(dynamic v) {
@@ -39,13 +39,13 @@ class AdminGetCarService {
     return double.tryParse(v.toString());
   }
 
-  /// Fetch cars with pagination and optional search
+  /// ✅ Fetch cars with pagination and optional search
   Future<CarPage> fetchCarsPage({
     int limit = 50,
     int offset = 0,
     String? search,
   }) async {
-    final uri = Uri.parse(ServiceBaseUrl.endpoint("admin_get_car.php")).replace(
+    final uri = Uri.parse(ServiceBaseUrl.endpoint("fetch_car.php")).replace(
       queryParameters: {
         'limit': '$limit',
         'offset': '$offset',
@@ -78,11 +78,11 @@ class AdminGetCarService {
         .map<Map<String, dynamic>>((e) {
           final m = Map<String, dynamic>.from(e as Map);
 
-          // Make URLs absolute
+          // ✅ Resolve top-level image URLs
           m['media_url'] = _resolveUrl(m['media_url']);
           m['thumbnail_url'] = _resolveUrl(m['thumbnail_url']);
 
-          // Convert to numeric values
+          // ✅ Convert numeric fields safely
           for (final k in [
             'hourly_rate',
             'daily_rate',
@@ -92,7 +92,29 @@ class AdminGetCarService {
             m[k] = _toNum(m[k]);
           }
 
-          // Extra UI-friendly fields
+          // ✅ Parse media array (list of images)
+          if (m['media'] is List) {
+            m['media'] =
+                (m['media'] as List).map<Map<String, dynamic>>((img) {
+                  final mm = Map<String, dynamic>.from(img as Map);
+                  mm['media_url'] = _resolveUrl(mm['media_url']);
+                  mm['thumbnail_url'] = _resolveUrl(mm['thumbnail_url']);
+                  return mm;
+                }).toList();
+          }
+
+          // ✅ Parse videos array (list of videos)
+          if (m['videos'] is List) {
+            m['videos'] =
+                (m['videos'] as List).map<Map<String, dynamic>>((vid) {
+                  final vv = Map<String, dynamic>.from(vid as Map);
+                  vv['media_url'] = _resolveUrl(vv['media_url']);
+                  vv['thumbnail_url'] = _resolveUrl(vv['thumbnail_url']);
+                  return vv;
+                }).toList();
+          }
+
+          // ✅ Add some Flutter-friendly aliases
           final manu = (m['manufacturer'] ?? '').toString();
           final model = (m['model'] ?? '').toString();
           m['car_name'] = (m['car_name'] ?? '$manu $model').toString().trim();
@@ -111,7 +133,7 @@ class AdminGetCarService {
     );
   }
 
-  /// Quick helper to get just the car list
+  /// ✅ Quick helper to get just the car list
   Future<List<Map<String, dynamic>>> getCars({
     int limit = 50,
     int offset = 0,

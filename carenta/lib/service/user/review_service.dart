@@ -1,53 +1,102 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:carenta/service/config/service_base_url.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ReviewService {
-  final String apiRoot;
-  const ReviewService({this.apiRoot = 'http://10.0.2.2/carenta/api'});
+  final String base = ServiceBaseUrl.endpoint(''); // Uses your endpoint helper
 
+  /// 🟢 Fetch all reviews for a specific car
   Future<Map<String, dynamic>> getReviews(int carId) async {
-    final uri = Uri.parse('$apiRoot/user_get_reviews.php?carid=$carId');
-    final res = await http.get(uri);
+    try {
+      final uri = Uri.parse(
+        ServiceBaseUrl.endpoint('user_get_reviews.php?carid=$carId'),
+      );
 
-    if (res.statusCode != 200) {
-      return {"success": false, "message": "HTTP ${res.statusCode}"};
-    }
+      final res = await http.get(uri);
+      if (res.statusCode != 200) {
+        return {'status': 'fail', 'message': 'HTTP ${res.statusCode}'};
+      }
 
-    final raw = res.body.trim();
-    final data = jsonDecode(raw);
-
-    if (data is Map && data['ok'] == true) {
-      return {"status": "success", "data": data['data'] ?? []};
-    } else {
-      return {"success": false, "message": data['message'] ?? "No reviews"};
+      final data = jsonDecode(res.body);
+      if (data['ok'] == true) {
+        return {'status': 'success', 'data': data['data'] ?? []};
+      } else {
+        return {
+          'status': 'fail',
+          'message': data['message'] ?? 'No reviews found',
+        };
+      }
+    } catch (e) {
+      return {'status': 'fail', 'message': 'Error: $e'};
     }
   }
 
+  /// 🟠 Add new review (supports optional image or video)
   Future<Map<String, dynamic>> addReview({
     required int userId,
     required int carId,
     required int rating,
     required String comment,
+    File? mediaFile,
   }) async {
-    final uri = Uri.parse('$apiRoot/user_add_review.php');
-    final res = await http.post(
-      uri,
-      body: {
-        'user_id': '$userId',
-        'car_id': '$carId',
-        'rating': '$rating',
-        'comment': comment,
-      },
-    );
+    try {
+      final uri = Uri.parse(ServiceBaseUrl.endpoint('user_add_review.php'));
+      var request = http.MultipartRequest('POST', uri);
 
-    if (res.statusCode != 200) {
-      return {"success": false, "message": "HTTP ${res.statusCode}"};
-    }
+      request.fields['user_id'] = '$userId';
+      request.fields['car_id'] = '$carId';
+      request.fields['rating'] = '$rating';
+      request.fields['comment'] = comment;
 
-    final data = jsonDecode(res.body);
-    if (data['ok'] == true) {
-      return {"status": "success", "message": data['message']};
+      // 🔗 Optional image or video file
+      if (mediaFile != null) {
+        final mime =
+            mediaFile.path.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg';
+
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'media',
+            mediaFile.path,
+            contentType: MediaType.parse(mime),
+          ),
+        );
+      }
+
+      final response = await request.send();
+      final resBody = await response.stream.bytesToString();
+      final data = jsonDecode(resBody);
+
+      if (data['ok'] == true) {
+        return {'status': 'success', 'message': data['message']};
+      } else {
+        return {
+          'status': 'fail',
+          'message': data['message'] ?? 'Upload failed',
+        };
+      }
+    } catch (e) {
+      return {'status': 'fail', 'message': 'Error: $e'};
     }
-    return {"success": false, "message": data['message'] ?? "Failed"};
+  }
+
+  /// 🔒 Check if a user can post a review (after completed rental)
+  Future<bool> canUserReview(int userId, int carId) async {
+    try {
+      final uri = Uri.parse(
+        ServiceBaseUrl.endpoint(
+          'user_can_review.php?userid=$userId&carid=$carId',
+        ),
+      );
+
+      final res = await http.get(uri);
+      if (res.statusCode != 200) return false;
+
+      final data = jsonDecode(res.body);
+      return data['ok'] == true && data['canReview'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 }

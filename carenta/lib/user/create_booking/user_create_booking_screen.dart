@@ -1,5 +1,4 @@
 import 'package:carenta/service/user/user_create_booking_service.dart';
-import 'package:carenta/service/user/user_get_car_schedule.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/user/user_payment_screen.dart';
 import 'package:carenta/main/splash_screen.dart';
@@ -20,7 +19,6 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _bookingService = UserCreateBookingService();
-  final _scheduleService = CarScheduleService();
 
   int? _userId;
   bool _checkingSession = true;
@@ -31,8 +29,6 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
   TimeOfDay? _dropoffTime;
   bool _loading = false;
 
-  List<Map<String, dynamic>> _schedule = [];
-
   final _priceFmt = NumberFormat('#,##0.##');
   final _dateFmt = DateFormat('yyyy-MM-dd');
 
@@ -40,7 +36,6 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
   void initState() {
     super.initState();
     _checkSession();
-    _loadSchedule();
   }
 
   Future<void> _checkSession() async {
@@ -66,16 +61,6 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
           MaterialPageRoute(builder: (_) => const SplashScreen()),
         );
       }
-    }
-  }
-
-  Future<void> _loadSchedule() async {
-    try {
-      final carId = int.tryParse('${widget.car['carid']}') ?? 0;
-      final data = await _scheduleService.fetchSchedule(carId);
-      setState(() => _schedule = data);
-    } catch (e) {
-      _showError("Failed to load car schedule: $e");
     }
   }
 
@@ -160,17 +145,12 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  /// ✅ Schedule Validation
-  bool _isWithinSchedule(DateTime date, TimeOfDay time) {
-    return true; // 🔧 temporarily bypass schedule validation
-  }
-
   bool _validateRentalRange() {
     if (_startDate == null || _endDate == null || _pickupTime == null) {
       return false;
     }
     if (_endDate!.isBefore(_startDate!)) return false;
-    return true; // skip checking schedule for now
+    return true;
   }
 
   Future<void> _submitBooking() async {
@@ -198,9 +178,8 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
       return;
     }
 
-    // ✅ check schedule availability
     if (!_validateRentalRange()) {
-      _showError("Selected rental period is outside car’s available schedule");
+      _showError("Invalid rental period");
       return;
     }
 
@@ -250,7 +229,7 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
                     "dropoff_location": _dropoffController.text.trim(),
                     "total_amount": _totalAmount,
                     "currency": widget.car['currency'] ?? 'PHP',
-                    "rentalid": result.rentalId, // ✅ FIXED key name
+                    "rentalid": result.rentalId,
                     "status": result.status ?? 'Pending',
                   },
                 ),
@@ -382,207 +361,232 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child:
-                  (imageUrl != null && imageUrl.isNotEmpty)
-                      ? Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (_, __, ___) => Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.broken_image, size: 80),
-                            ),
-                      )
-                      : Container(
-                        color: Colors.grey[300],
-                        child: const Center(
-                          child: Icon(Icons.directions_car, size: 80),
-                        ),
+      body: _buildBody(
+        imageUrl,
+        manufacturer,
+        model,
+        year,
+        type,
+        seats,
+        transmission,
+        fuel,
+      ),
+    );
+  }
+
+  Widget _buildBody(
+    String? imageUrl,
+    String manufacturer,
+    String model,
+    String year,
+    String type,
+    String seats,
+    String transmission,
+    String fuel,
+  ) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child:
+                (imageUrl != null && imageUrl.isNotEmpty)
+                    ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (_, __, ___) => Container(
+                            color: Colors.grey[300],
+                            child: const Icon(Icons.broken_image, size: 80),
+                          ),
+                    )
+                    : Container(
+                      color: Colors.grey[300],
+                      child: const Center(
+                        child: Icon(Icons.directions_car, size: 80),
                       ),
+                    ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '$manufacturer $model${year.isNotEmpty ? ' ($year)' : ''}',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _Pill(icon: Icons.category_rounded, label: type),
+            _Pill(icon: Icons.event_seat, label: '$seats seats'),
+            _Pill(icon: Icons.settings, label: transmission),
+            _Pill(icon: Icons.local_gas_station, label: fuel),
+          ],
+        ),
+        const SizedBox(height: 18),
+        _buildPriceCard(),
+        const SizedBox(height: 18),
+        _buildForm(),
+      ],
+    );
+  }
+
+  Widget _buildPriceCard() {
+    return _Card(
+      child: Row(
+        children: [
+          _PriceTile(
+            title: 'Daily',
+            price: '$_currencySymbol${_priceFmt.format(_dailyRate)}',
+            highlight: true,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              children: [
+                _PriceRow(label: 'Weekly', value: '—'),
+                SizedBox(height: 8),
+                _PriceRow(label: 'Monthly', value: '—'),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            '$manufacturer $model${year.isNotEmpty ? ' ($year)' : ''}',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _Pill(icon: Icons.category_rounded, label: type),
-              _Pill(icon: Icons.event_seat, label: '$seats seats'),
-              _Pill(icon: Icons.settings, label: transmission),
-              _Pill(icon: Icons.local_gas_station, label: fuel),
-            ],
-          ),
-          const SizedBox(height: 18),
-          _Card(
-            child: Row(
+        ],
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    return Form(
+      key: _formKey,
+      child: _Card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Trip Details',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _pickupController,
+              textInputAction: TextInputAction.next,
+              decoration: _inputDecoration(
+                label: 'Pickup Location',
+                icon: Icons.my_location,
+              ),
+              validator:
+                  (v) =>
+                      (v == null || v.trim().isEmpty)
+                          ? 'Enter pickup location'
+                          : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _dropoffController,
+              textInputAction: TextInputAction.done,
+              decoration: _inputDecoration(
+                label: 'Dropoff Location',
+                icon: Icons.location_on,
+              ),
+              validator:
+                  (v) =>
+                      (v == null || v.trim().isEmpty)
+                          ? 'Enter dropoff location'
+                          : null,
+            ),
+            const SizedBox(height: 16),
+            Row(
               children: [
-                _PriceTile(
-                  title: 'Daily',
-                  price: '$_currencySymbol${_priceFmt.format(_dailyRate)}',
-                  highlight: true,
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickDate(isStart: true),
+                    borderRadius: BorderRadius.circular(12),
+                    child: _dateField(
+                      label: 'Start Date',
+                      value:
+                          _startDate == null
+                              ? 'Select'
+                              : _dateFmt.format(_startDate!),
+                      icon: Icons.event,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    children: [
-                      _PriceRow(label: 'Weekly', value: '—'),
-                      SizedBox(height: 8),
-                      _PriceRow(label: 'Monthly', value: '—'),
-                    ],
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _pickDate(isStart: false),
+                    borderRadius: BorderRadius.circular(12),
+                    child: _dateField(
+                      label: 'End Date',
+                      value:
+                          _endDate == null
+                              ? 'Select'
+                              : _dateFmt.format(_endDate!),
+                      icon: Icons.event_available,
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 18),
-
-          /// ✅ Trip Details full form
-          Form(
-            key: _formKey,
-            child: _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _pickTime(isStart: true),
+              borderRadius: BorderRadius.circular(12),
+              child: _dateField(
+                label: 'Pickup Time',
+                value:
+                    _pickupTime == null
+                        ? 'Select'
+                        : _formatTimeOfDay(_pickupTime!),
+                icon: Icons.access_time_filled,
+              ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => _pickTime(isStart: false),
+              borderRadius: BorderRadius.circular(12),
+              child: _dateField(
+                label: 'End Time (optional)',
+                value:
+                    _dropoffTime == null
+                        ? '—'
+                        : _formatTimeOfDay(_dropoffTime!),
+                icon: Icons.schedule,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF90E0EF).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
-                  const Text(
-                    'Trip Details',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _pickupController,
-                    textInputAction: TextInputAction.next,
-                    decoration: _inputDecoration(
-                      label: 'Pickup Location',
-                      icon: Icons.my_location,
-                    ),
-                    validator:
-                        (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Enter pickup location'
-                                : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _dropoffController,
-                    textInputAction: TextInputAction.done,
-                    decoration: _inputDecoration(
-                      label: 'Dropoff Location',
-                      icon: Icons.location_on,
-                    ),
-                    validator:
-                        (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Enter dropoff location'
-                                : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _pickDate(isStart: true),
-                          borderRadius: BorderRadius.circular(12),
-                          child: _dateField(
-                            label: 'Start Date',
-                            value:
-                                _startDate == null
-                                    ? 'Select'
-                                    : _dateFmt.format(_startDate!),
-                            icon: Icons.event,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: () => _pickDate(isStart: false),
-                          borderRadius: BorderRadius.circular(12),
-                          child: _dateField(
-                            label: 'End Date',
-                            value:
-                                _endDate == null
-                                    ? 'Select'
-                                    : _dateFmt.format(_endDate!),
-                            icon: Icons.event_available,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: () => _pickTime(isStart: true),
-                    borderRadius: BorderRadius.circular(12),
-                    child: _dateField(
-                      label: 'Pickup Time',
-                      value:
-                          _pickupTime == null
-                              ? 'Select'
-                              : _formatTimeOfDay(_pickupTime!),
-                      icon: Icons.access_time_filled,
+                  const Icon(Icons.receipt_long, color: Color(0xFF0077B6)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _rentalDays > 0
+                          ? '$_rentalDays day${_rentalDays == 1 ? '' : 's'} × $_currencySymbol${_priceFmt.format(_dailyRate)}'
+                          : 'Select dates to see total',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: () => _pickTime(isStart: false),
-                    borderRadius: BorderRadius.circular(12),
-                    child: _dateField(
-                      label: 'End Time (optional)',
-                      value:
-                          _dropoffTime == null
-                              ? '—'
-                              : _formatTimeOfDay(_dropoffTime!),
-                      icon: Icons.schedule,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF90E0EF).withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.receipt_long,
-                          color: Color(0xFF0077B6),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _rentalDays > 0
-                                ? '$_rentalDays day${_rentalDays == 1 ? '' : 's'} × $_currencySymbol${_priceFmt.format(_dailyRate)}'
-                                : 'Select dates to see total',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        Text(
-                          _rentalDays > 0
-                              ? '$_currencySymbol${_priceFmt.format(_totalAmount)}'
-                              : '—',
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    _rentalDays > 0
+                        ? '$_currencySymbol${_priceFmt.format(_totalAmount)}'
+                        : '—',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

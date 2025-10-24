@@ -1,6 +1,6 @@
-import 'package:carenta/service/admin/admin_get_car_service.dart';
-import 'package:carenta/user/user_car_details_screen.dart';
-import 'package:carenta/widget/user_builder_card_listed_car_model.dart';
+import 'package:carenta/service/Shared/get_car_service.dart';
+import 'package:carenta/user/car_details/user_car_details_screen.dart';
+import 'package:carenta/widget/shared/car_card_widget.dart';
 import 'package:flutter/material.dart';
 
 class UserHomescreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class UserHomescreen extends StatefulWidget {
 
 class _UserHomescreenState extends State<UserHomescreen> {
   final TextEditingController _searchController = TextEditingController();
-  final AdminGetCarService _carService = AdminGetCarService();
+  final GetCarService _carService = GetCarService();
 
   List<Map<String, dynamic>> _allCars = [];
   List<Map<String, dynamic>> _filteredCars = [];
@@ -59,7 +59,7 @@ class _UserHomescreenState extends State<UserHomescreen> {
   @override
   void dispose() {
     _searchController.dispose();
-    _carService.close(); // nice to cleanup the client
+    _carService.close();
     super.dispose();
   }
 
@@ -70,38 +70,31 @@ class _UserHomescreenState extends State<UserHomescreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // 🔍 Search bar
+            // 🔍 Search Bar
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller:
-                          _searchController, // ⬅️ use the real controller
-                      decoration: InputDecoration(
-                        hintText: 'Search cars...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 0,
-                          horizontal: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search cars...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 0,
+                    horizontal: 16,
                   ),
-                ],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
-            // 🚗 Car list
+            // 🚗 Car List
             Expanded(
               child:
                   _isLoading
@@ -116,14 +109,19 @@ class _UserHomescreenState extends State<UserHomescreen> {
                       : RefreshIndicator(
                         onRefresh: _fetchCars,
                         child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
                           itemCount: _filteredCars.length,
                           itemBuilder: (context, index) {
                             final car = _filteredCars[index];
+
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              // ⬇️ tap anywhere on the card to open details
-                              child: GestureDetector(
+                              child: CarCardWidget(
+                                car: car,
+                                showStatus:
+                                    false, // ✅ User doesn’t need car status
+                                compactMode: true,
                                 onTap: () {
                                   Navigator.push(
                                     context,
@@ -133,27 +131,6 @@ class _UserHomescreenState extends State<UserHomescreen> {
                                     ),
                                   );
                                 },
-                                child: UserBuildercardListedcarmodel(
-                                  carName: car['name'] ?? 'Unknown',
-                                  brand: car['brand'] ?? 'N/A',
-                                  imageUrl:
-                                      (car['image_url'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? car['image_url']
-                                          : 'https://via.placeholder.com/150',
-                                  seats:
-                                      int.tryParse(
-                                        car['seats']?.toString() ?? '4',
-                                      ) ??
-                                      4,
-                                  transmission:
-                                      car['transmission'] ?? 'Automatic',
-                                  pricePerDay:
-                                      (car['price'] ?? '50').toString(),
-                                  // If your card supports it, you can also pass:
-                                  // currency: (car['currency'] ?? 'PHP').toString(),
-                                ),
                               ),
                             );
                           },
