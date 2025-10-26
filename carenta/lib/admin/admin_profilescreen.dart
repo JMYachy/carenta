@@ -41,7 +41,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
 
   Future<void> _checkSession() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res['success'] == true &&
           (res['data']?['account_type'] == 'admin_table')) {
         setState(() {

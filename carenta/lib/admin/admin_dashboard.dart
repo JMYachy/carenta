@@ -28,7 +28,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Future<void> _checkSession() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res["success"] == true) {
         setState(() {
           _sessionData = res["data"];

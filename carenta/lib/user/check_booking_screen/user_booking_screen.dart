@@ -41,7 +41,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
 
   Future<void> _checkSessionAndLoad() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res['success'] == true) {
         final id = res['data']?['userid'];
         if (id != null) {

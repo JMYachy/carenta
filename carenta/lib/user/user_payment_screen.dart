@@ -29,7 +29,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   // ✅ Validate active session before allowing payment
   Future<void> _checkSession() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res['success'] == true) {
         setState(() {
           _userId = res['data']?['userid'];

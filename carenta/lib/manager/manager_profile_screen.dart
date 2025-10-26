@@ -32,7 +32,7 @@ class _ManagerProfileScreenState extends State<ManagerProfileScreen> {
   Future<void> _loadProfile() async {
     setState(() => _loading = true);
 
-    final session = await SessionService.checkSession();
+    final session = await SessionManagerService.checkSession();
     if (session["success"] != true || session["data"]?["role"] != "manager") {
       if (mounted) {
         Navigator.pushReplacement(
@@ -90,7 +90,7 @@ class _ManagerProfileScreenState extends State<ManagerProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await SessionService.logout();
+    await SessionManagerService.logout();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,

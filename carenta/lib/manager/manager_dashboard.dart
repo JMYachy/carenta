@@ -40,7 +40,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
 
   Future<void> _checkSession() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res["success"] == true) {
         setState(() {
           _sessionData = res["data"];
@@ -183,7 +183,7 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
                     ),
                   ),
                   onPressed: () async {
-                    await SessionService.logout();
+                    await SessionManagerService.logout();
                     if (mounted) {
                       Navigator.pushReplacement(
                         context,

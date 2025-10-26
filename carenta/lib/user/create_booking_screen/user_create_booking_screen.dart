@@ -40,7 +40,7 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
 
   Future<void> _checkSession() async {
     try {
-      final res = await SessionService.checkSession();
+      final res = await SessionManagerService.checkSession();
       if (res['success'] == true) {
         setState(() {
           _userId = res['data']?['userid'];

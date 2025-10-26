@@ -54,7 +54,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _checkSessionAndLoad() async {
     try {
-      final session = await SessionService.checkSession();
+      final session = await SessionManagerService.checkSession();
       if (session['success'] == true) {
         setState(() {
           _userId = session['data']?['userid'];
@@ -210,7 +210,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
     if (confirm != true) return;
 
-    await SessionService.logout();
+    await SessionManagerService.logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const SplashScreen()),

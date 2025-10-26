@@ -38,7 +38,7 @@ class _SigninScreenState extends State<SigninScreen> {
     }
 
     try {
-      final result = await SessionService.login(email, password);
+      final result = await SessionManagerService.login(email, password);
       setState(() => _isLoading = false);
 
       if (result['success'] == true) {

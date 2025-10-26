@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 /// Handles login, session checking, and logout for Carenta.
 /// Communicates with: https://carentaph.com/api/session_manager.php
-class SessionService {
+class SessionManagerService {
   static final String _url = ServiceBaseUrl.endpoint("session_manager.php");
   static final http.Client _client = http.Client();
 

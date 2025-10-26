@@ -1,8 +1,8 @@
 import 'package:carenta/user/check_booking_screen/user_booking_screen.dart';
-import 'package:carenta/user/user_favorite_screen.dart';
+import 'package:carenta/user/inbox_screen/user_inbox_screen.dart';
+import 'package:carenta/user/favorite_screen/user_favorite_screen.dart';
 import 'package:carenta/user/user_homescreen.dart';
 import 'package:carenta/user/user_profile_screen.dart';
-import 'package:carenta/user/message_screen/user_messages_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -19,7 +19,7 @@ class _UserDashboardState extends State<UserDashboard> {
     'Home',
     'Favorites',
     'Bookings',
-    'Messages',
+    'Inbox',
     'Profile',
   ];
 
@@ -95,8 +95,12 @@ class _UserDashboardState extends State<UserDashboard> {
             icon: Icon(Icons.book_online),
             label: 'Bookings',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.message), 
+          label: 'Inbox'
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), 
+          label: 'Profile'
+          ),
         ],
       ),
     );
@@ -109,7 +113,7 @@ class _UserDashboardState extends State<UserDashboard> {
 
   Widget _buildBookingsScreen() => const UserBookingScreen();
 
-  Widget _buildMessagesScreen() => const UserMessagesScreen();
+  Widget _buildMessagesScreen() => const UserInboxScreen();
 
   Widget _buildProfileScreen() => const UserProfileScreen();
 }
