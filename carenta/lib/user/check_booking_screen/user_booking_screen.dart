@@ -3,11 +3,12 @@
 import 'package:carenta/main/splash_screen.dart';
 import 'package:carenta/service/user/user_booking_service.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
-import 'package:carenta/user/check_booking/widgets/booking_filter_strip.dart';
-import 'package:carenta/user/check_booking/widgets/booking_state_widgets.dart';
-import 'package:carenta/user/check_booking/widgets/booking_card_container.dart';
-import 'package:carenta/user/check_booking/widgets/booking_header_bar.dart';
+import 'package:carenta/user/check_booking_screen/widgets/booking_filter_strip.dart';
+import 'package:carenta/user/check_booking_screen/widgets/booking_state_widgets.dart';
+import 'package:carenta/user/check_booking_screen/widgets/booking_card_container.dart';
+import 'package:carenta/user/check_booking_screen/widgets/booking_header_bar.dart';
 import 'package:carenta/widget/shared/booking_card_widget.dart';
+import 'package:carenta/user/booking_detail_detail_screen/booking_details_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserBookingScreen extends StatefulWidget {
@@ -134,7 +135,7 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
+                    color: Colors.black.withOpacity(0.06),
                     blurRadius: 16,
                     offset: const Offset(0, -2),
                   ),
@@ -171,15 +172,23 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                         return BookingCardContainer(
                           child: BookingCardWidget.fromApi(
                             r,
-                            onTap: () {
-                              // 🚀 Navigate to booking details or car detail page
-                              debugPrint(
-                                'Tapped booking with ID: ${r['rentalid']}',
+                            onTap: () async {
+                              // 🚀 Navigate to Booking Detail Screen
+                              final updated = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (_) => BookingDetailsScreen(
+                                        booking: r,
+                                        userId: _userId,
+                                      ),
+                                ),
                               );
-                              // Example:
-                              // Navigator.push(context, MaterialPageRoute(
-                              //   builder: (_) => BookingDetailScreen(booking: r),
-                              // ));
+
+                              // 🔄 Auto refresh when returning (e.g. after cancel)
+                              if (updated == true && mounted) {
+                                _reload();
+                              }
                             },
                           ),
                         );

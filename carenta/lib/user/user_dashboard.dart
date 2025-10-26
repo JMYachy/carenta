@@ -1,7 +1,8 @@
-import 'package:carenta/user/check_booking/user_booking_screen.dart';
+import 'package:carenta/user/check_booking_screen/user_booking_screen.dart';
 import 'package:carenta/user/user_favorite_screen.dart';
 import 'package:carenta/user/user_homescreen.dart';
 import 'package:carenta/user/user_profile_screen.dart';
+import 'package:carenta/user/message_screen/user_messages_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserDashboard extends StatefulWidget {
@@ -14,7 +15,13 @@ class UserDashboard extends StatefulWidget {
 class _UserDashboardState extends State<UserDashboard> {
   int _selectedIndex = 0;
 
-  final List<String> _titles = ['Home', 'Bookings', 'Favorites', 'Profile'];
+  final List<String> _titles = [
+    'Home',
+    'Favorites',
+    'Bookings',
+    'Messages',
+    'Profile',
+  ];
 
   void _onTabTapped(int index) {
     setState(() {
@@ -25,9 +32,10 @@ class _UserDashboardState extends State<UserDashboard> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = [
-      _buildEmptyHome(),
-      _buildBookingsScreen(),
+      _buildHomeScreen(),
       _buildFavoritesScreen(),
+      _buildBookingsScreen(),
+      _buildMessagesScreen(), // ✅ real chat screen
       _buildProfileScreen(),
     ];
 
@@ -47,7 +55,9 @@ class _UserDashboardState extends State<UserDashboard> {
         ),
         leading: IconButton(
           icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () {},
+          onPressed: () {
+            // 🔹 Add drawer or settings later if needed
+          },
         ),
         centerTitle: true,
         title: Text(
@@ -62,7 +72,9 @@ class _UserDashboardState extends State<UserDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              // 🔹 Future: open notifications page
+            },
           ),
         ],
       ),
@@ -76,26 +88,28 @@ class _UserDashboardState extends State<UserDashboard> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.book_online),
-            label: 'Bookings',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
             label: 'Favorites',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book_online),
+            label: 'Bookings',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyHome() {
-    return const UserHomescreen();
-  }
+  // 🔹 Sections
+  Widget _buildHomeScreen() => const UserHomescreen();
+
+  Widget _buildFavoritesScreen() => const UserFavoritesScreen();
 
   Widget _buildBookingsScreen() => const UserBookingScreen();
 
-  Widget _buildFavoritesScreen() => const UserFavoritesScreen();
+  Widget _buildMessagesScreen() => const UserMessagesScreen();
 
   Widget _buildProfileScreen() => const UserProfileScreen();
 }

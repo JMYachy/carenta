@@ -1,15 +1,15 @@
 // lib/admin/admin_booking_screen.dart
-import 'package:carenta/admin/rental_detail_screen/admin_canceled_rental_detail_screen.dart';
-import 'package:carenta/admin/rental_detail_screen/admin_ongoing_rental_screen.dart';
-import 'package:carenta/admin/rental_detail_screen/admin_rental_details_screen.dart';
+import 'package:carenta/admin/booking_screen/rental_detail_screen/admin_canceled_rental_detail_screen.dart';
+import 'package:carenta/admin/booking_screen/rental_detail_screen/admin_ongoing_rental_screen.dart';
+import 'package:carenta/admin/booking_screen/rental_detail_screen/admin_rental_details_screen.dart';
 import 'package:carenta/service/admin/admin_booking_service.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_card_container.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_empty_state.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_error_state.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_filter_strip.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_header_bar.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/booking_loading_state.dart';
-import 'package:carenta/widget/admin_widget/admin_booking_screen_widget/card_builder_booking_card.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_card_container.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_empty_state.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_error_state.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_filter_strip.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_header_bar.dart';
+import 'package:carenta/admin/booking_screen/widget/booking_loading_state.dart';
+import 'package:carenta/admin/booking_screen/widget/card_builder_booking_card.dart';
 import 'package:flutter/material.dart';
 
 class AdminBookingScreen extends StatefulWidget {

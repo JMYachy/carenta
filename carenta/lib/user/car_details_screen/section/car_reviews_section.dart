@@ -1,4 +1,4 @@
-import 'package:carenta/user/car_details/review/review_list_view.dart';
+import 'package:carenta/user/car_details_screen/review/review_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:carenta/service/user/review_service.dart';
 

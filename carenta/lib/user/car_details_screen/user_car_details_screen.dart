@@ -1,11 +1,11 @@
 import 'package:carenta/service/user/review_service.dart';
 import 'package:carenta/service/user/user_favorite_service.dart';
-import 'package:carenta/user/car_details/section/book_now_bar.dart';
-import 'package:carenta/user/car_details/section/car_favorite_section.dart';
-import 'package:carenta/user/car_details/section/car_header_section.dart';
-import 'package:carenta/user/car_details/section/car_reviews_section.dart';
-import 'package:carenta/user/car_details/section/car_specs_section.dart';
-import 'package:carenta/user/create_booking/user_create_booking_screen.dart';
+import 'package:carenta/user/car_details_screen/section/book_now_bar.dart';
+import 'package:carenta/user/car_details_screen/section/car_favorite_section.dart';
+import 'package:carenta/user/car_details_screen/section/car_header_section.dart';
+import 'package:carenta/user/car_details_screen/section/car_reviews_section.dart';
+import 'package:carenta/user/car_details_screen/section/car_specs_section.dart';
+import 'package:carenta/user/create_booking_screen/user_create_booking_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserCarDetailsScreen extends StatefulWidget {

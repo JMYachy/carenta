@@ -8,10 +8,14 @@ class UserBookingService {
 
   UserBookingService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// ✅ Automatically uses your ServiceBaseUrl
-  String get _endpoint => ServiceBaseUrl.endpoint("get_booking.php");
+  /// ✅ Fetch Bookings
+  String get _fetchEndpoint => ServiceBaseUrl.endpoint("get_booking.php");
 
-  /// Fetch user’s booking list
+  /// ✅ Booking Action Endpoint
+  String get _actionEndpoint =>
+      ServiceBaseUrl.endpoint("user_booking_action.php");
+
+  /// 🧾 Fetch user’s booking list
   Future<Map<String, dynamic>> fetchUserBookings({
     required int userId,
     String? status,
@@ -19,59 +23,89 @@ class UserBookingService {
     int offset = 0,
     String order = 'desc',
   }) async {
-    final uri = Uri.parse(_endpoint).replace(
+    final uri = Uri.parse(_fetchEndpoint).replace(
       queryParameters: {
         'user_id': userId.toString(),
         if (status != null && status.isNotEmpty) 'status': status,
-        'limit': limit.toString(),
-        'offset': offset.toString(),
+        'limit': '$limit',
+        'offset': '$offset',
         'order': order,
       },
     );
 
     debugPrint('📡 GET $uri');
-
     final resp = await _client.get(uri);
-    final bodyText = resp.body;
-
-    debugPrint('Response ${resp.statusCode}');
-    if (bodyText.isNotEmpty) {
-      debugPrint(
-        bodyText.length > 400 ? '${bodyText.substring(0, 400)}...' : bodyText,
-      );
-    }
 
     if (resp.statusCode != 200) {
-      throw Exception('Server error: ${resp.statusCode}\n$bodyText');
+      throw Exception('Server error: ${resp.statusCode}');
     }
 
-    // ✅ Check if response looks like JSON
-    final trimmed = bodyText.trimLeft();
-    final looksJson = trimmed.startsWith('{') || trimmed.startsWith('[');
-    if (!looksJson) {
-      throw Exception('Expected JSON but got:\n${trimmed.substring(0, 200)}');
+    final trimmed = resp.body.trimLeft();
+    if (!trimmed.startsWith('{')) {
+      throw Exception('Invalid JSON response');
     }
 
     final data = jsonDecode(trimmed);
-
-    // ✅ Handle successful response
     if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
-      final List<dynamic> bookings = data['data'] ?? [];
-
+      final bookings = (data['data'] as List?) ?? [];
       return {
         "status": "success",
-        "message": data['message'] ?? "Bookings fetched",
-        "count": data['count'] ?? bookings.length,
+        "message": data['message'] ?? "Bookings fetched successfully.",
         "data": bookings,
       };
     }
 
-    // ❌ Handle error response
     return {
       "success": false,
-      "message":
-          (data is Map ? (data['message'] ?? data['error']) : "Unknown error"),
+      "message": (data is Map ? data['message'] : "Failed to fetch bookings"),
     };
+  }
+
+  /// 🚦 Perform booking actions: cancel | confirm | complete
+  Future<Map<String, dynamic>> performAction({
+    required int rentalId,
+    required String action, // cancel | confirm | complete
+    String? reason,
+  }) async {
+    final uri = Uri.parse(_actionEndpoint);
+    final body = {
+      'rental_id': '$rentalId',
+      'action': action,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+    };
+
+    debugPrint('📤 POST $uri\nBody: $body');
+
+    final resp = await _client.post(uri, body: body);
+
+    if (resp.statusCode != 200) {
+      return {"status": "fail", "message": "HTTP ${resp.statusCode}"};
+    }
+
+    final data = jsonDecode(resp.body);
+    if (data['ok'] == true) {
+      return {
+        "status": "success",
+        "message": data['message'] ?? "Action successful",
+      };
+    }
+
+    return {"status": "fail", "message": data['message'] ?? "Action failed"};
+  }
+
+  /// 🛑 Shortcut for cancelling booking
+  Future<Map<String, dynamic>> cancelBooking(int rentalId, {String? reason}) {
+    return performAction(rentalId: rentalId, action: 'cancel', reason: reason);
+  }
+
+  /// 🟢 Shortcut for confirming booking
+  Future<Map<String, dynamic>> confirmBooking(int rentalId) {
+    return performAction(rentalId: rentalId, action: 'confirm');
+  }
+
+  /// 🔵 Shortcut for marking as completed
+  Future<Map<String, dynamic>> completeBooking(int rentalId) {
+    return performAction(rentalId: rentalId, action: 'complete');
   }
 
   void close() => _client.close();

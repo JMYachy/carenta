@@ -1,5 +1,5 @@
 import 'package:carenta/service/Shared/get_car_service.dart';
-import 'package:carenta/user/car_details/user_car_details_screen.dart';
+import 'package:carenta/user/car_details_screen/user_car_details_screen.dart';
 import 'package:carenta/widget/shared/car_card_widget.dart';
 import 'package:flutter/material.dart';
 

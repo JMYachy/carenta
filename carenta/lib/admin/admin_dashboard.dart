@@ -1,4 +1,4 @@
-import 'package:carenta/admin/admin_booking_screen.dart';
+import 'package:carenta/admin/booking_screen/admin_booking_screen.dart';
 import 'package:carenta/admin/admin_car_screen.dart';
 import 'package:carenta/admin/home_screen/admin_homescreen.dart';
 import 'package:carenta/admin/admin_profilescreen.dart';
