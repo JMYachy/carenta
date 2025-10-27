@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// A reusable, configurable car card widget for both Admin and User UIs.
-/// Supports full data maps or lightweight car models.
-/// Now includes a favorite toggle ❤️
 class CarCardWidget extends StatefulWidget {
   final Map<String, dynamic> car;
   final VoidCallback? onTap;
@@ -11,6 +8,9 @@ class CarCardWidget extends StatefulWidget {
   final bool compactMode;
   final bool enableFavorite;
   final Function(bool isFav)? onFavoriteChanged;
+  final Future<bool> Function(bool isFav)? onFavoriteChangedAsync;
+  final int? ratingPercent; // 0..100
+  final int? reviewCount;
 
   const CarCardWidget({
     super.key,
@@ -21,6 +21,9 @@ class CarCardWidget extends StatefulWidget {
     this.compactMode = false,
     this.enableFavorite = true,
     this.onFavoriteChanged,
+    this.onFavoriteChangedAsync,
+    this.ratingPercent,
+    this.reviewCount,
   });
 
   @override
@@ -33,14 +36,36 @@ class _CarCardWidgetState extends State<CarCardWidget> {
   @override
   void initState() {
     super.initState();
-    _isFavorite = widget.car['is_favorite'] == true ||
-        widget.car['favorite'] == true ||
-        widget.car['isFavorite'] == true;
+    _isFavorite = _extractIsFavorite(widget.car);
   }
 
-  /// --- Currency Symbol Helper ---
+  @override
+  void didUpdateWidget(CarCardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final incoming = _extractIsFavorite(widget.car);
+    if (incoming != _isFavorite) {
+      _isFavorite = incoming;
+    }
+  }
+
+  // ------ Helpers (SAFE CASTING) ---------------------------------------------
+
+  bool _extractIsFavorite(Map<String, dynamic> car) {
+    final v =
+        car['is_favorite'] ??
+        car['favorite'] ??
+        car['isFavorite'] ??
+        car['fav'];
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) return v.toLowerCase() == 'true' || v == '1';
+    return false;
+  }
+
+  String _asString(dynamic v) => v?.toString() ?? '';
+
   String get _currencySymbol {
-    switch ((widget.car['currency'] ?? 'PHP').toString().toUpperCase()) {
+    switch (_asString(widget.car['currency']).toUpperCase()) {
       case 'USD':
         return '\$';
       case 'EUR':
@@ -51,9 +76,8 @@ class _CarCardWidgetState extends State<CarCardWidget> {
     }
   }
 
-  /// --- Status Color ---
   Color get _statusColor {
-    final s = (widget.car['status'] ?? '').toString().toLowerCase();
+    final s = _asString(widget.car['status']).toLowerCase();
     switch (s) {
       case 'available':
         return Colors.greenAccent;
@@ -66,40 +90,78 @@ class _CarCardWidgetState extends State<CarCardWidget> {
     }
   }
 
+  String _fmtMoney(dynamic v) {
+    if (v == null) return '0';
+    if (v is num) return v.toStringAsFixed(0);
+    final parsed = num.tryParse(v.toString());
+    return parsed?.toStringAsFixed(0) ?? '0';
+  }
+
+  int _clampPct(int? v) => (v ?? 0).clamp(0, 100);
+
   void _toggleFavorite() async {
-    setState(() => _isFavorite = !_isFavorite);
-    // Optional: call your backend service to update favorite
-    widget.onFavoriteChanged?.call(_isFavorite);
+    final next = !_isFavorite;
+    setState(() => _isFavorite = next); // optimistic
+    widget.onFavoriteChanged?.call(next); // optional sync
+    if (widget.onFavoriteChangedAsync != null) {
+      // confirm/revert
+      final ok = await widget.onFavoriteChangedAsync!(next);
+      if (!ok && mounted) setState(() => _isFavorite = !next);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final car = widget.car;
-    final manufacturer = (car['manufacturer'] ?? '').toString();
-    final model = (car['model'] ?? '').toString();
-    final year = (car['year'] ?? '').toString();
-    final type = (car['type'] ?? '').toString();
 
-    final transmission = (car['transmission'] ?? '').toString();
-    final fuelType = (car['fueltype'] ?? car['fuelType'] ?? '').toString();
-    final seatingCap = car['seatingcap'] ?? car['seatingCap'] ?? 0;
+    final manufacturer = _asString(
+      car['manufacturer'].toString().isEmpty
+          ? car['brand']
+          : car['manufacturer'],
+    );
+    final model = _asString(
+      car['model'].toString().isEmpty ? car['name'] : car['model'],
+    );
+    final year = _asString(car['year']);
+    final type = _asString(car['type']);
 
-    final daily = car['daily_rate'] ?? car['dailyRate'] ?? 0;
-    final weekly = car['weekly_rate'] ?? car['weeklyRate'] ?? 0;
-    final monthly = car['monthly_rate'] ?? car['monthlyRate'] ?? 0;
+    final transmission = _asString(car['transmission']);
+    final fuelType = _asString(car['fueltype'] ?? car['fuelType']);
+    final seatingCap = _asString(car['seatingcap'] ?? car['seatingCap']);
 
-    final List<dynamic> media = (car['media'] ?? []) as List<dynamic>;
-    final imageUrl = media.isNotEmpty
-        ? media.first['media_url'] ?? car['media_url']
-        : car['media_url'] ?? '';
+    final daily = _fmtMoney(car['daily_rate'] ?? car['dailyRate']);
+    final weekly = _fmtMoney(car['weekly_rate'] ?? car['weeklyRate']);
+    final monthly = _fmtMoney(car['monthly_rate'] ?? car['monthlyRate']);
+
+    // SAFELY derive image URL as String
+    final List<dynamic> media =
+        (car['media'] is List) ? (car['media'] as List<dynamic>) : const [];
+    final rawUrl =
+        media.isNotEmpty
+            ? (media.first is Map ? (media.first as Map)['media_url'] : null)
+            : (car['media_url']);
+    final imageUrl = _asString(rawUrl); // <----- FORCE STRING
+
+    final rPct = _clampPct(
+      widget.ratingPercent ??
+          (car['rating_percent'] is num
+              ? (car['rating_percent'] as num).round()
+              : null),
+    );
+    final rCount =
+        widget.reviewCount ??
+        (car['review_count'] is num
+            ? (car['review_count'] as num).toInt()
+            : (int.tryParse('${car['review_count'] ?? ''}') ?? 0));
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: widget.onTap,
       child: Container(
-        margin: widget.compactMode
-            ? const EdgeInsets.symmetric(vertical: 6, horizontal: 8)
-            : const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        margin:
+            widget.compactMode
+                ? const EdgeInsets.symmetric(vertical: 6, horizontal: 8)
+                : const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -115,13 +177,12 @@ class _CarCardWidgetState extends State<CarCardWidget> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 🏷️ Header
+            // Title + Favorite (moved to header) + Status
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    '$manufacturer $model',
+                    '${manufacturer.isEmpty ? '' : manufacturer + ' '}$model',
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.bold,
@@ -130,8 +191,21 @@ class _CarCardWidgetState extends State<CarCardWidget> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (widget.enableFavorite)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _toggleFavorite,
+                    icon: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: _isFavorite ? Colors.redAccent : Colors.grey[700],
+                      size: 22,
+                    ),
+                  ),
                 if (widget.showStatus)
                   Container(
+                    margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 4,
@@ -141,7 +215,7 @@ class _CarCardWidgetState extends State<CarCardWidget> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      (car['status'] ?? 'Unknown').toString().toUpperCase(),
+                      _asString(car['status']).toUpperCase(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -153,15 +227,14 @@ class _CarCardWidgetState extends State<CarCardWidget> {
             ),
             if (year.isNotEmpty || type.isNotEmpty)
               Text(
-                '$year • $type',
+                '${year.isEmpty ? '' : year + ' • '}$type',
                 style: const TextStyle(color: Colors.black54, fontSize: 13),
               ),
 
             const SizedBox(height: 10),
 
-            // 🖼️ Image with Favorite Button
+            // Image + Rating badge (favorite moved to header)
             Stack(
-              alignment: Alignment.topRight,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -169,44 +242,60 @@ class _CarCardWidgetState extends State<CarCardWidget> {
                     aspectRatio: 16 / 9,
                     child: Image.network(
                       imageUrl.isNotEmpty
-                          ? imageUrl.startsWith('http')
+                          ? (imageUrl.startsWith('http')
                               ? imageUrl
-                              : 'https://carentaph.com/$imageUrl'
+                              : 'https://carentaph.com/$imageUrl')
                           : 'https://via.placeholder.com/600x400?text=No+Image',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: const Color(0xFF0D47A1).withOpacity(0.15),
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.directions_car, size: 50),
-                      ),
+                      errorBuilder:
+                          (_, __, ___) => Container(
+                            color: const Color(0xFF0D47A1).withOpacity(0.15),
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.directions_car, size: 50),
+                          ),
                     ),
                   ),
                 ),
-
-                // ❤️ Favorite button
-                if (widget.enableFavorite)
+                if (rPct > 0)
                   Positioned(
                     top: 8,
-                    right: 8,
-                    child: GestureDetector(
-                      onTap: _toggleFavorite,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.8),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _isFavorite
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: _isFavorite
-                              ? Colors.redAccent
-                              : Colors.grey[700],
-                          size: 22,
-                        ),
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.star_rate_rounded,
+                            size: 16,
+                            color: Colors.amber,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$rPct%',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (rCount > 0) ...[
+                            const SizedBox(width: 6),
+                            Text(
+                              '($rCount)',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -215,13 +304,16 @@ class _CarCardWidgetState extends State<CarCardWidget> {
 
             const SizedBox(height: 10),
 
-            // ⚙️ Info Row
+            // Specs row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _Info(icon: Icons.settings, label: transmission),
                 _Info(icon: Icons.local_gas_station, label: fuelType),
-                _Info(icon: Icons.people, label: '$seatingCap Seats'),
+                _Info(
+                  icon: Icons.people,
+                  label: '${seatingCap.isEmpty ? '—' : seatingCap} Seats',
+                ),
               ],
             ),
 
@@ -230,13 +322,9 @@ class _CarCardWidgetState extends State<CarCardWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _Price(label: 'Daily', value: '$_currencySymbol${daily ?? 0}'),
-                  _Price(
-                      label: 'Weekly',
-                      value: '$_currencySymbol${weekly ?? 0}'),
-                  _Price(
-                      label: 'Monthly',
-                      value: '$_currencySymbol${monthly ?? 0}'),
+                  _Price(label: 'Daily', value: '$_currencySymbol$daily'),
+                  _Price(label: 'Weekly', value: '$_currencySymbol$weekly'),
+                  _Price(label: 'Monthly', value: '$_currencySymbol$monthly'),
                 ],
               ),
             ],
@@ -251,7 +339,6 @@ class _Info extends StatelessWidget {
   final IconData icon;
   final String label;
   const _Info({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -268,7 +355,6 @@ class _Price extends StatelessWidget {
   final String label;
   final String value;
   const _Price({required this.label, required this.value});
-
   @override
   Widget build(BuildContext context) {
     return Column(

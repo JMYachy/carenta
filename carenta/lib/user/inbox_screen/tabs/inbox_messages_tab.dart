@@ -1,7 +1,7 @@
 import 'package:carenta/service/Shared/messages_service.dart';
 import 'package:carenta/service/util_service/navigation_helper.dart';
 import 'package:carenta/user/inbox_screen/tabs/widgets/inbox_message_card.dart';
-import 'package:carenta/user/message_screen/user_messages_screen.dart';
+import 'package:carenta/user/inbox_screen/message_screen/user_messages_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -41,17 +41,19 @@ class _InboxMessagesTabState extends State<InboxMessagesTab> {
       itemCount: _messages.length,
       itemBuilder: (context, index) {
         final msg = _messages[index];
-        final time = DateFormat('MMM d, h:mm a').format(DateTime.parse(msg['sent_at']));
+        final time = DateFormat(
+          'MMM d, h:mm a',
+        ).format(DateTime.parse(msg['sent_at']));
         return InboxMessageCard(
           title: msg['admin_name'] ?? 'Carenta Manager',
           subtitle: msg['message_text'] ?? '',
           time: time,
           onTap: () {
             // ✅ Clean, readable navigation
-            Nav.to(context, UserMessagesScreen(
-              key: UniqueKey(),
-              adminId: msg['admin_id'],
-            ));
+            Nav.to(
+              context,
+              UserMessagesScreen(key: UniqueKey(), adminId: msg['admin_id']),
+            );
           },
         );
       },

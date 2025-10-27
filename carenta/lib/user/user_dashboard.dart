@@ -1,7 +1,7 @@
 import 'package:carenta/user/check_booking_screen/user_booking_screen.dart';
 import 'package:carenta/user/inbox_screen/user_inbox_screen.dart';
 import 'package:carenta/user/favorite_screen/user_favorite_screen.dart';
-import 'package:carenta/user/user_homescreen.dart';
+import 'package:carenta/user/user_home_screen/user_homescreen.dart';
 import 'package:carenta/user/user_profile_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -95,12 +95,8 @@ class _UserDashboardState extends State<UserDashboard> {
             icon: Icon(Icons.book_online),
             label: 'Bookings',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.message), 
-          label: 'Inbox'
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), 
-          label: 'Profile'
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Inbox'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

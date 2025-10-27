@@ -8,7 +8,7 @@ import 'package:carenta/user/check_booking_screen/widgets/booking_state_widgets.
 import 'package:carenta/user/check_booking_screen/widgets/booking_card_container.dart';
 import 'package:carenta/user/check_booking_screen/widgets/booking_header_bar.dart';
 import 'package:carenta/widget/shared/booking_card_widget.dart';
-import 'package:carenta/user/booking_detail_detail_screen/booking_details_screen.dart';
+import 'package:carenta/user/check_booking_screen/booking_detail_screen/booking_details_screen.dart';
 import 'package:flutter/material.dart';
 
 class UserBookingScreen extends StatefulWidget {
