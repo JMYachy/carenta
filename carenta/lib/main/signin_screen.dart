@@ -1,6 +1,6 @@
-import 'package:carenta/admin/admin_dashboard.dart';
+import 'package:carenta/manager/admin_dashboard.dart';
 import 'package:carenta/main/signup_screen.dart';
-import 'package:carenta/manager/manager_dashboard.dart';
+import 'package:carenta/manager%20-%20admin/manager_dashboard.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/user/user_dashboard.dart';
 import 'package:flutter/material.dart';

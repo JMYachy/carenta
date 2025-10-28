@@ -1,6 +1,5 @@
 import 'package:carenta/user/user_home_screen/car_details_screen/section/car_rating_and_reviews_section.dart';
 import 'package:flutter/material.dart';
-import 'package:carenta/service/user/review_service.dart';
 import 'package:carenta/service/user/user_favorite_service.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/user/user_home_screen/car_details_screen/section/book_now_bar.dart';

@@ -114,6 +114,37 @@ class SessionManagerService {
     }
   }
 
+  static Future<_SessionUser?> getSession() async {
+    final result = await checkSession();
+
+    if (result['success'] == true ||
+        result['status'] == 'success' ||
+        result['ok'] == true) {
+      final data = result['data'];
+      if (data is Map<String, dynamic> && data['userid'] != null) {
+        return _SessionUser(
+          userId: int.tryParse(data['userid'].toString()) ?? 0,
+          username: data['username']?.toString(),
+          email: data['email']?.toString(),
+        );
+      }
+    }
+    return null;
+  }
+
   /// 🧹 Clear cookie manually (optional for logout safety)
   static void clearSessionCookie() => _cookie = null;
+}
+/// 🧠 Get current session user details (returns userId if logged in)
+
+class _SessionUser {
+  final int userId;
+  final String? username;
+  final String? email;
+
+  _SessionUser({
+    required this.userId,
+    this.username,
+    this.email,
+  });
 }
