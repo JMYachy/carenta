@@ -1,6 +1,6 @@
-import 'package:carenta/manager/admin_dashboard.dart';
+import 'package:carenta/Admin/admin_dashboard.dart';
 import 'package:carenta/main/signup_screen.dart';
-import 'package:carenta/manager%20-%20admin/manager_dashboard.dart';
+import 'package:carenta/manager/dashboard/manager_dashboard_screen.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/user/user_dashboard.dart';
 import 'package:flutter/material.dart';
@@ -46,9 +46,9 @@ class _SigninScreenState extends State<SigninScreen> {
 
         Widget targetScreen;
         if (role == 'admin') {
-          targetScreen = const AdminDashboard();
+          targetScreen = const Placeholder();
         } else if (role == 'manager') {
-          targetScreen = const ManagerDashboard();
+          targetScreen = const ManagerDashboardScreen();
         } else {
           targetScreen = const UserDashboard();
         }

@@ -1,224 +1,178 @@
-import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_add_review_section.dart';
-import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_cancelled_notice.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_action_section.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_feedback_section.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_header_image.dart';
 import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_info_card.dart';
-import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_payment_summary.dart';
-import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_status_banner.dart';
-import 'package:carenta/widget/shared/car_image_carousel.dart';
-import 'package:carenta/service/user/review_service.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_section_info.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_status_badge.dart';
+import 'package:carenta/user/booking_screen/booking_detail_screen/widget/booking_timeline_tracker.dart';
 import 'package:flutter/material.dart';
+import 'package:carenta/service/user/user_booking_action_service.dart';
+import 'package:carenta/service/user/user_cancellation_request_service.dart';
+import 'package:carenta/service/user/user_feedback_service.dart';
 
-class BookingDetailsScreen extends StatefulWidget {
+class UserBookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
-  final int? userId;
-
-  const BookingDetailsScreen({super.key, required this.booking, this.userId});
+  const UserBookingDetailScreen({super.key, required this.booking});
 
   @override
-  State<BookingDetailsScreen> createState() => _BookingDetailsScreenState();
+  State<UserBookingDetailScreen> createState() =>
+      _UserBookingDetailScreenState();
 }
 
-class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
-  final _reviewService = ReviewService();
-  bool _canReview = false;
-  bool _loadingReview = true;
+class _UserBookingDetailScreenState extends State<UserBookingDetailScreen> {
+  final _bookingSvc = UserBookingActionService();
+  final _cancelSvc = UserCancellationRequestService();
+  final _feedbackSvc = UserFeedbackService();
 
-  @override
-  void initState() {
-    super.initState();
-    _checkIfCanReview();
-  }
-
-  Future<void> _checkIfCanReview() async {
-    if (widget.userId == null) return;
-    final carId = int.tryParse('${widget.booking['carid']}') ?? 0;
-    final allowed = await _reviewService.canUserReview(widget.userId!, carId);
-    if (!mounted) return;
-    setState(() {
-      _canReview = allowed;
-      _loadingReview = false;
-    });
-  }
+  bool _loading = false;
+  int _rating = 0;
+  String _title = '';
+  String _comment = '';
 
   @override
   Widget build(BuildContext context) {
-    final booking = widget.booking;
-    final status = (booking['status'] ?? '').toString().toLowerCase();
+    final b = widget.booking;
+    final status = (b['status'] ?? '').toString().toLowerCase();
 
-    final carName =
-        '${booking['manufacturer'] ?? ''} ${booking['model'] ?? ''}'.trim();
-    final rentalType = (booking['rental_type'] ?? 'Self-drive').toString();
-    final pickup = booking['pickup_location'] ?? '—';
-    final dropoff = booking['dropoff_location'] ?? '—';
-    final startDate = booking['start_date'] ?? '—';
-    final endDate = booking['end_date'] ?? '—';
-    final totalAmount =
-        double.tryParse('${booking['total_amount'] ?? 0}') ?? 0.0;
-    final currency = booking['currency'] ?? 'PHP';
-    final symbol = currency == 'USD' ? '\$' : (currency == 'EUR' ? '€' : '₱');
-
-    final media =
-        booking['media'] ??
-        booking['media_list'] ??
-        booking['images'] ??
-        booking['image_url'] ??
-        '';
+    // 🧠 DEBUG: Check what image key contains data
+    debugPrint('🧠 Booking image data: '
+        '${b['media_url'] ?? b['car_image'] ?? b['image']}');
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Booking Details'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
+        title: const Text('Rental Details'),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Colors.white,
       ),
-      body: RefreshIndicator(
-        onRefresh: _checkIfCanReview,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            // 🖼️ Car Image Carousel
-            CarImageCarousel(imageData: media),
-            const SizedBox(height: 16),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                BookingTimelineTracker(status: status),
+                const SizedBox(height: 8),
 
-            // 🟢 Status Banner
-            BookingStatusBanner(status: status),
-            const SizedBox(height: 16),
+                // ✅ FIX: unified image key (same logic as booking card widget)
+                BookingHeaderImage(
+                  imageUrl: b['media_url'] ?? b['car_image'] ?? b['image'],
+                  carName:
+                      '${b['manufacturer'] ?? ''} ${b['model'] ?? ''}'.trim(),
+                ),
 
-            // 🚗 Trip Details
-            BookingInfoCard(
-              title: "Trip Details",
-              items: {
-                "Car": carName,
-                "Rental Type": rentalType,
-                "Pickup Location": pickup,
-                "Drop-off Location": dropoff,
-                "Start Date": startDate,
-                "End Date": endDate,
-              },
+                const SizedBox(height: 12),
+                BookingStatusBadge(
+                    rentalId: b['rentalid'], status: status, context: context),
+                const SizedBox(height: 16),
+
+                // 🧾 Car Info
+                BookingInfoCard(
+                  title: 'Car Information',
+                  icon: Icons.directions_car_rounded,
+                  children: [
+                    BookingSectionInfo(label: 'Model', value: b['model']),
+                    BookingSectionInfo(
+                        label: 'Rental Type', value: b['rental_type']),
+                    BookingSectionInfo(
+                        label: 'Plate Number', value: b['license_plate']),
+                    BookingSectionInfo(
+                        label: 'With Driver', value: b['withDriver'] ?? 'No'),
+                  ],
+                ),
+
+                // 📅 Schedule
+                BookingInfoCard(
+                  title: 'Schedule & Location',
+                  icon: Icons.calendar_month_rounded,
+                  children: [
+                    BookingSectionInfo(
+                        label: 'Pickup', value: b['pickup_location']),
+                    BookingSectionInfo(
+                        label: 'Dropoff', value: b['dropoff_location']),
+                    BookingSectionInfo(
+                        label: 'Start Date', value: b['start_date']),
+                    BookingSectionInfo(label: 'End Date', value: b['end_date']),
+                  ],
+                ),
+
+                // 💰 Payment
+                BookingInfoCard(
+                  title: 'Payment',
+                  icon: Icons.payments_rounded,
+                  children: [
+                    BookingSectionInfo(
+                        label: 'Payment Method',
+                        value: b['payment_method'] ?? 'Unpaid'),
+                    BookingSectionInfo(
+                        label: 'Total Amount', value: '₱${b['total_amount']}'),
+                  ],
+                ),
+
+                // ⚙️ Actions
+                if (['pending', 'confirmed', 'ongoing'].contains(status))
+                  BookingActionSection(
+                    status: status,
+                    rentalId: b['rentalid'],
+                    userId: b['userid'],
+                    onCancel: _handleCancel,
+                  ),
+
+                // ⭐ Review
+                if (status == 'completed')
+                  BookingFeedbackSection(
+                    onSubmit: _saveFeedback,
+                    rating: _rating,
+                    onRatingChange: (r) => setState(() => _rating = r),
+                    titleController: TextEditingController(text: _title),
+                    commentController: TextEditingController(text: _comment),
+                  ),
+              ],
             ),
-            const SizedBox(height: 16),
-
-            // 💳 Payment Summary
-            BookingPaymentSummary(
-              amount: totalAmount,
-              method: booking['payment_method'] ?? 'Cash',
-              status: booking['payment_status'] ?? '—',
-              symbol: symbol,
-            ),
-            const SizedBox(height: 20),
-
-            // 🟠 Status-based UI Blocks
-            if (status == 'completed') ...[
-              const Divider(thickness: 1.2),
-              const SizedBox(height: 8),
-              const Text(
-                "Your Review",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              _loadingReview
-                  ? const Center(child: CircularProgressIndicator())
-                  : _canReview
-                  ? BookingAddReviewSection(
-                    carId: int.tryParse('${booking['carid']}') ?? 0,
-                    userId: widget.userId!,
-                    onSubmitted: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("✅ Review added successfully!"),
-                        ),
-                      );
-                      Navigator.pop(context, true);
-                    },
-                  )
-                  : _reviewDoneMessage(),
-            ],
-
-            if (status == 'cancelled') ...[
-              const SizedBox(height: 16),
-              BookingCancelledNotice(
-                reason:
-                    booking['cancellation_reason'] ??
-                    "This booking was cancelled.",
-              ),
-            ],
-
-            if (status == 'ongoing') ...[
-              const SizedBox(height: 16),
-              _ongoingInfoCard(),
-            ],
-
-            if (status == 'confirmed') ...[
-              const SizedBox(height: 16),
-              _confirmedInfoCard(),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
-  /// ✅ Already reviewed message
-  Widget _reviewDoneMessage() => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.green.shade50,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Row(
-      children: [
-        Icon(Icons.check_circle, color: Colors.green),
-        SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            "You have already reviewed this car.",
-            style: TextStyle(color: Colors.green, fontSize: 14),
-          ),
-        ),
-      ],
-    ),
-  );
+  Future<void> _handleCancel({
+    required int rentalId,
+    required int userId,
+    required bool isRequest,
+    required String reason,
+  }) async {
+    setState(() => _loading = true);
+    final res = isRequest
+        ? await _cancelSvc.submitRequest(
+            rentalId: rentalId, userId: userId, reason: reason)
+        : await _bookingSvc.updateStatus(rentalId, 'cancel', reason: reason);
+    setState(() => _loading = false);
 
-  /// 🕒 Ongoing Info
-  Widget _ongoingInfoCard() => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.blue.shade50,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Row(
-      children: [
-        Icon(Icons.info_outline, color: Colors.blue),
-        SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            "Your rental is currently ongoing.\nPlease ensure the car is returned on time.",
-            style: TextStyle(color: Colors.blue, fontSize: 14),
-          ),
-        ),
-      ],
-    ),
-  );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(res['message']),
+      backgroundColor:
+          res['success'] == true ? Colors.green : Colors.redAccent,
+    ));
 
-  /// 🟢 Confirmed Info
-  Widget _confirmedInfoCard() => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.orange.shade50,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Row(
-      children: [
-        Icon(Icons.calendar_today, color: Colors.orange),
-        SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            "Your booking is confirmed!\nPlease wait for pickup or contact support for any changes.",
-            style: TextStyle(color: Colors.orange, fontSize: 14),
-          ),
-        ),
-      ],
-    ),
-  );
+    if (res['success'] == true && mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  Future<void> _saveFeedback() async {
+    setState(() => _loading = true);
+    final res = await _feedbackSvc.saveFeedback(
+      userId: widget.booking['userid'],
+      carId: widget.booking['carid'],
+      rating: _rating,
+      title: _title,
+      comment: _comment,
+    );
+    setState(() => _loading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(res['message']),
+        backgroundColor:
+            res['success'] == true ? Colors.green : Colors.redAccent,
+      ),
+    );
+    if (res['success'] == true && mounted) {
+      Navigator.pop(context, true);
+    }
+  }
 }

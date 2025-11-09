@@ -1,13 +1,14 @@
 import 'dart:convert';
-import 'package:carenta/service/config/service_base_url.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:carenta/service/config/service_base_url.dart';
 
-/// Handles login, session checking, and logout for Carenta.
-/// Communicates with: https://carentaph.com/api/session_manager.php
+/// ✅ Handles login, session checking, and logout for Carenta.
+/// Uses: https://carentaph.com/api/session_manager.php
 class SessionManagerService {
   static final String _url = ServiceBaseUrl.endpoint("session_manager.php");
   static final http.Client _client = http.Client();
-
   static String? _cookie; // stores "PHPSESSID=xxxx"
 
   /// Build common headers (with cookie if available)
@@ -23,7 +24,6 @@ class SessionManagerService {
   static void _captureCookie(http.Response resp) {
     final setCookie = resp.headers['set-cookie'] ?? resp.headers['Set-Cookie'];
     if (setCookie != null) {
-      // Example: "PHPSESSID=abc123; path=/; HttpOnly"
       final sess = setCookie
           .split(';')
           .firstWhere(
@@ -36,9 +36,7 @@ class SessionManagerService {
 
   /// 🔐 Login (email / username / phone accepted)
   static Future<Map<String, dynamic>> login(
-    String loginInput,
-    String password,
-  ) async {
+      String loginInput, String password) async {
     try {
       final resp = await _client.post(
         Uri.parse(_url),
@@ -52,42 +50,38 @@ class SessionManagerService {
       );
 
       _captureCookie(resp);
-
-      if (resp.statusCode != 200) {
-        throw Exception("Server error: ${resp.statusCode}");
-      }
-
       final data = jsonDecode(resp.body);
-      if (data is! Map<String, dynamic>) {
-        throw Exception("Invalid server response");
-      }
-
-      return data;
+      return (data is Map<String, dynamic>) ? data : _error("Invalid response");
+    } on SocketException catch (e) {
+      return _error("Network unreachable: ${e.message}");
     } catch (e) {
-      return {"success": false, "status": "error", "message": e.toString()};
+      return _error("Login error: $e");
     }
   }
 
   /// 🔍 Check if there’s an active session on the server
-  static Future<Map<String, dynamic>> checkSession() async {
+  static Future<Map<String, dynamic>> checkSession({int retries = 1}) async {
     try {
+      debugPrint("🔗 Checking session at: $_url?action=check");
       final resp = await _client.get(
         Uri.parse("$_url?action=check"),
         headers: _headers(),
       );
 
-      if (resp.statusCode != 200) {
-        throw Exception("Server error: ${resp.statusCode}");
-      }
-
       final data = jsonDecode(resp.body);
-      if (data is! Map<String, dynamic>) {
-        throw Exception("Invalid server response");
+      if (resp.statusCode != 200 || data is! Map<String, dynamic>) {
+        return _error("Invalid server response");
       }
-
       return data;
+    } on SocketException catch (e) {
+      if (retries > 0) {
+        debugPrint("⚠️ Host lookup failed, retrying...");
+        await Future.delayed(const Duration(seconds: 1));
+        return checkSession(retries: retries - 1);
+      }
+      return _error("Host lookup failed: ${e.message}");
     } catch (e) {
-      return {"success": false, "status": "error", "message": e.toString()};
+      return _error("Session check failed: $e");
     }
   }
 
@@ -99,27 +93,17 @@ class SessionManagerService {
         headers: _headers(form: true),
         body: {"action": "logout"},
       );
-
-      _cookie = null; // clear local session
+      _cookie = null;
       final data = jsonDecode(resp.body);
-      return data is Map<String, dynamic>
-          ? data
-          : {
-            "success": false,
-            "status": "error",
-            "message": "Invalid response",
-          };
+      return (data is Map<String, dynamic>) ? data : _error("Invalid response");
     } catch (e) {
-      return {"success": false, "status": "error", "message": e.toString()};
+      return _error("Logout error: $e");
     }
   }
 
   static Future<_SessionUser?> getSession() async {
     final result = await checkSession();
-
-    if (result['success'] == true ||
-        result['status'] == 'success' ||
-        result['ok'] == true) {
+    if (result['success'] == true || result['ok'] == true) {
       final data = result['data'];
       if (data is Map<String, dynamic> && data['userid'] != null) {
         return _SessionUser(
@@ -132,19 +116,16 @@ class SessionManagerService {
     return null;
   }
 
-  /// 🧹 Clear cookie manually (optional for logout safety)
   static void clearSessionCookie() => _cookie = null;
+
+  static Map<String, dynamic> _error(String msg) =>
+      {"success": false, "status": "error", "message": msg};
 }
-/// 🧠 Get current session user details (returns userId if logged in)
 
 class _SessionUser {
   final int userId;
   final String? username;
   final String? email;
 
-  _SessionUser({
-    required this.userId,
-    this.username,
-    this.email,
-  });
+  _SessionUser({required this.userId, this.username, this.email});
 }

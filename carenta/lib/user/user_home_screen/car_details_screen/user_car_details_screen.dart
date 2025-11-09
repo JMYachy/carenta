@@ -80,9 +80,34 @@ class _UserCarDetailsScreenState extends State<UserCarDetailsScreen> {
     }
   }
 
+  /// 🧩 Normalize the car data so all fields match expected keys
+  Map<String, dynamic> get normalizedCar {
+    final raw = widget.car;
+    return {
+      'carid': raw['carid'] ?? raw['id'],
+      'manufacturer': raw['manufacturer'] ?? raw['brand'] ?? '',
+      'model': raw['model'] ?? raw['name'] ?? '',
+      'type': raw['type'] ?? raw['car_type'] ?? '',
+      'color': raw['color'] ?? raw['car_color'] ?? '',
+      'milage': raw['milage'] ?? raw['mileage'] ?? raw['odometer'] ?? '',
+      'transmission': raw['transmission'] ?? '',
+      'fueltype': raw['fueltype'] ?? raw['fuel_type'] ?? '',
+      'seatingcap': raw['seatingcap'] ?? raw['seating_capacity'] ?? '',
+      'status': raw['status'] ?? '',
+      'withDriver': raw['withDriver'] ?? raw['with_driver'] ?? 'No',
+      'daily_rate': raw['daily_rate'] ?? raw['price'] ?? 0,
+      'currency': raw['currency'] ?? 'PHP',
+      'media_url': raw['media_url'] ??
+          raw['thumbnail_url'] ??
+          raw['image_url'] ??
+          'https://via.placeholder.com/600x400?text=No+Image',
+    };
+  }
+
+
   @override
   Widget build(BuildContext context) {
-    final car = widget.car;
+    final car = normalizedCar;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -103,8 +128,10 @@ class _UserCarDetailsScreenState extends State<UserCarDetailsScreen> {
           ),
         ],
       ),
+
+      /// 💰 Bottom booking bar
       bottomNavigationBar: BookNowBar(
-        dailyRate: car['daily_rate'] ?? car['price'],
+        dailyRate: car['daily_rate'] ?? 0,
         currency: car['currency'] ?? 'PHP',
         onBook: () {
           Navigator.push(
@@ -115,18 +142,18 @@ class _UserCarDetailsScreenState extends State<UserCarDetailsScreen> {
           );
         },
       ),
+
+      /// 🧾 Body
       body: RefreshIndicator(
         onRefresh: _checkFavoriteStatus,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
           children: [
-            CarHeaderSection(car: car),
+            CarHeaderSection(car: car), // 🖼️ Image + title
             const SizedBox(height: 20),
-            CarSpecsSection(car: car),
+            CarSpecsSection(car: car), // ⚙️ Specs (fuel, trans, seats)
             const SizedBox(height: 20),
-
-            /// ⭐ NEW Ratings and Reviews
             CarRatingsAndReviewsSection(
               carId: car['carid'],
               carName: "${car['manufacturer']} ${car['model']}",

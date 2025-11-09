@@ -42,9 +42,8 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
   Future<void> _bootstrap() async {
     setState(() => _initing = true);
     try {
-      final session = await SessionManagerService.getSession();
-      final uid = session?.userId;
-      if (uid == null) {
+      final session = await SessionManagerService.checkSession();
+      if (session['success'] != true && session['ok'] != true) {
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const SplashScreen()),
@@ -52,10 +51,17 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
         );
         return;
       }
-      _userId = uid;
-      await _fetch();
+
+      final data = session['data'] ?? {};
+      _userId = data['userid'] ?? data['user_id'];
+
+      if (_userId != null) {
+        await _fetch();
+      } else {
+        _error = "No user session found.";
+      }
     } catch (e) {
-      _error = 'Failed to initialize: $e';
+      _error = 'Initialization failed: $e';
     } finally {
       if (mounted) setState(() => _initing = false);
     }
@@ -67,6 +73,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
       _loading = true;
       _error = null;
     });
+
     try {
       final res = await _svc.list(
         userId: _userId!,
@@ -74,7 +81,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
         sort: _sort,
       );
 
-      if (res['status'] == 'success') {
+      if (res['ok'] == true || res['status'] == 'success') {
         final List data = (res['data'] as List?) ?? const [];
         _items = data.cast<Map<String, dynamic>>();
       } else {
@@ -87,9 +94,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
     }
   }
 
-  Future<void> _pullToRefresh() async {
-    await _fetch();
-  }
+  Future<void> _pullToRefresh() async => _fetch();
 
   void _applySort(String value) {
     if (_sort == value) return;
@@ -98,12 +103,12 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
   }
 
   void _onToggleFavorite(int carId, bool currentlyFav) async {
-    // Optimistic update: if removing from favorites list, remove instantly
+    if (_userId == null) return;
+
+    // Optimistic update
     if (currentlyFav) {
       final idx = _items.indexWhere((e) => _readInt(e['carid']) == carId);
-      if (idx != -1) {
-        setState(() => _items.removeAt(idx));
-      }
+      if (idx != -1) setState(() => _items.removeAt(idx));
     }
 
     try {
@@ -113,30 +118,22 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
         add: !currentlyFav,
       );
 
-      if (res['status'] != 'success') {
-        // rollback if failed
-        if (currentlyFav) {
-          await _fetch();
-        }
+      final ok = res['ok'] == true || res['status'] == 'success';
+      if (!ok) {
+        await _fetch(); // rollback on error
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to toggle favorite')),
+            SnackBar(content: Text(res['message'] ?? 'Failed to update favorite')),
           );
         }
-      } else {
-        if (mounted && !currentlyFav) {
-          // If user added a favorite from elsewhere and opened this screen later,
-          // we could re-fetch to include it. Here we’re already on the favorites list,
-          // so we just show success.
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Added to favorites')),
-          );
-        }
+      } else if (mounted && !currentlyFav) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to favorites')),
+        );
       }
     } catch (e) {
+      await _fetch(); // rollback on failure
       if (mounted) {
-        // rollback
-        await _fetch();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Toggle failed: $e')),
         );
@@ -152,15 +149,39 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
     return null;
   }
 
+  Map<String, dynamic> _normalizeCarData(Map<String, dynamic> raw) {
+  return {
+    'carid': raw['carid'] ?? raw['id'],
+    'manufacturer': raw['manufacturer'] ?? raw['brand'] ?? '',
+    'model': raw['model'] ?? raw['name'] ?? '',
+    'type': raw['type'] ?? raw['car_type'] ?? '',
+    'color': raw['color'] ?? raw['car_color'] ?? '',
+    'milage': raw['milage']?.toString() ??
+        raw['mileage']?.toString() ??
+        raw['odometer']?.toString() ??
+        '',
+    'transmission': raw['transmission'] ?? '',
+    'fueltype': raw['fueltype'] ?? raw['fuel_type'] ?? '',
+    'seatingcap': raw['seatingcap']?.toString() ??
+        raw['seating_capacity']?.toString() ??
+        '',
+    'status': raw['status'] ?? '',
+    'withDriver': raw['withDriver'] ?? raw['with_driver'] ?? 'No',
+    'daily_rate': raw['daily_rate'] ?? raw['price'] ?? 0,
+    'currency': raw['currency'] ?? 'PHP',
+    'media_url': raw['media_url'] ??
+        raw['thumbnail_url'] ??
+        raw['image_url'] ??
+        'https://via.placeholder.com/600x400?text=No+Image',
+  };
+}
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Favorites'),
         actions: [
-          // Sort menu
           PopupMenuButton<String>(
             tooltip: 'Sort',
             onSelected: _applySort,
@@ -177,7 +198,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
       ),
       body: Column(
         children: [
-          // Search bar
+          // 🔍 Search
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: TextField(
@@ -185,7 +206,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _fetch(),
               decoration: InputDecoration(
-                hintText: 'Search cars, models, types…',
+                hintText: 'Search cars, models, or types…',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _searchC.text.isNotEmpty
                     ? IconButton(
@@ -224,13 +245,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
           const SizedBox(height: 80),
           Icon(Icons.error_outline_rounded, size: 48, color: theme.colorScheme.error),
           const SizedBox(height: 12),
-          Center(
-            child: Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
+          Center(child: Text(_error!, textAlign: TextAlign.center)),
           const SizedBox(height: 8),
           Center(
             child: FilledButton.icon(
@@ -243,32 +258,23 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
       );
     }
 
-    if (_loading && _items.isEmpty) {
-      return const _LoadingState();
-    }
+    if (_loading && _items.isEmpty) return const _LoadingState();
 
     if (_items.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          const SizedBox(height: 80),
-          const Icon(Icons.favorite_border_rounded, size: 48),
-          const SizedBox(height: 12),
-          const Center(
-            child: Text('No favorites yet'),
-          ),
-          const SizedBox(height: 4),
-          Center(
-            child: Text(
-              'Tap the heart on a car to save it here.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
+        children: const [
+          SizedBox(height: 80),
+          Icon(Icons.favorite_border_rounded, size: 48),
+          SizedBox(height: 12),
+          Center(child: Text('No favorites yet')),
+          SizedBox(height: 4),
+          Center(child: Text('Tap the heart on a car to save it here.')),
         ],
       );
     }
 
-    // ✅ THIS is the correct ListView builder section
+    // ✅ Favorites List
     return ListView.separated(
       controller: _scrollC,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -283,20 +289,12 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
           car: model,
           onToggle: () => _onToggleFavorite(model.carId, true),
           onTap: () {
+            final carData = _normalizeCarData(raw);
+
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => UserCarDetailsScreen(
-                  car: {
-                    "carid": model.carId,
-                    "manufacturer": model.title,
-                    "type": model.type,
-                    "transmission": model.transmission,
-                    "fueltype": model.fuelType,
-                    "daily_rate": model.dailyRate,
-                    "image_url": model.imageUrl,
-                  },
-                ),
+                builder: (_) => UserCarDetailsScreen(car: carData),
               ),
             );
           },
@@ -306,7 +304,7 @@ class _UserFavoritesScreenState extends State<UserFavoritesScreen> {
   }
 }
 
-/// Minimal shimmer-style loading with modern feel
+/// Shimmer-style loading
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
 
@@ -328,10 +326,10 @@ class _LoadingState extends StatelessWidget {
   }
 }
 
-/// Safe, defensive model for the mixed API fields
+/// Updated model with daily-only rate and new DB fields
 class FavoriteCarModel {
   final int carId;
-  final String title; // manufacturer + model fallback
+  final String title;
   final String type;
   final String transmission;
   final String fuelType;
@@ -355,7 +353,7 @@ class FavoriteCarModel {
     if (v is num) return v.toInt();
     if (v is String) return int.tryParse(v) ?? 0;
     return 0;
-    }
+  }
 
   static double? _asDouble(dynamic v) {
     if (v == null) return null;
@@ -381,9 +379,9 @@ class FavoriteCarModel {
     );
 
     final img = _firstNonEmpty([
-      json['image_url'],
-      json['thumbnail_url'],
       json['media_url'],
+      json['thumbnail_url'],
+      json['image_url'],
       json['photo'],
     ]);
 

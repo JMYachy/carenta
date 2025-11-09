@@ -46,7 +46,6 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
       return false;
     }
 
-    // Build safe initial date
     DateTime initial = isStart
         ? (widget.startDate ?? now)
         : (widget.endDate ?? widget.startDate ?? now);
@@ -54,7 +53,6 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
     final today = normalize(now);
     if (initial.isBefore(today)) initial = today;
 
-    // Shift if blocked
     int tries = 0;
     while (isBlocked(initial) && tries < 180) {
       initial = initial.add(const Duration(days: 1));
@@ -91,13 +89,29 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
   /// Pick pickup or dropoff time.
   Future<void> _pickTime(BuildContext context, bool isStart) async {
     final now = TimeOfDay.now();
-    final picked = await showTimePicker(context: context, initialTime: now);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: now,
+      builder: (ctx, child) {
+        // Force 12-hour mode
+        return MediaQuery(
+          data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: false),
+          child: child!,
+        );
+      },
+    );
     if (picked != null) widget.onSelectTime(isStart, picked);
   }
 
   @override
   Widget build(BuildContext context) {
-    final fmtTime = DateFormat('HH:mm');
+    // ✅ 12-hour time format with AM/PM
+    String formatTime(TimeOfDay? t) {
+      if (t == null) return "Select";
+      final now = DateTime.now();
+      final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
+      return DateFormat('h:mm a').format(dt); // e.g. "3:15 PM"
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,10 +160,7 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
               child: _timeField(
                 context,
                 label: "Pickup Time",
-                value: widget.pickupTime == null
-                    ? "Select"
-                    : fmtTime.format(DateTime(
-                        0, 0, 0, widget.pickupTime!.hour, widget.pickupTime!.minute)),
+                value: formatTime(widget.pickupTime),
                 icon: Icons.access_time,
                 onTap: () => _pickTime(context, true),
               ),
@@ -161,8 +172,7 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
                 label: "Dropoff Time",
                 value: widget.dropoffTime == null
                     ? "—"
-                    : fmtTime.format(DateTime(
-                        0, 0, 0, widget.dropoffTime!.hour, widget.dropoffTime!.minute)),
+                    : formatTime(widget.dropoffTime),
                 icon: Icons.schedule,
                 onTap: () => _pickTime(context, false),
               ),
@@ -172,7 +182,6 @@ class _BookingDateSelectionState extends State<BookingDateSelection> {
 
         const SizedBox(height: 10),
 
-        // 🔒 Unavailable notice
         if (widget.blocked.isNotEmpty)
           Row(
             children: const [

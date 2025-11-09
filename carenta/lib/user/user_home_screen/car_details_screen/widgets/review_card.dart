@@ -6,10 +6,20 @@ class ReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = (review['user_name'] ?? 'Anonymous').toString();
+    // ✅ Safely determine the user's display name
+    final name = (review['user_display_name'] ??
+            review['full_name'] ??
+            review['username'] ??
+            'Anonymous')
+        .toString()
+        .trim();
+
     final rating = double.tryParse('${review['rating'] ?? 0}') ?? 0;
-    final text = (review['comment'] ?? '').toString();
+    final text = (review['comment'] ?? '').toString().trim();
     final date = (review['created_at'] ?? '').toString().split(' ').first;
+
+    // ✅ First letter for avatar
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Container(
       width: 240,
@@ -28,21 +38,21 @@ class ReviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Reviewer
+          // 👤 Reviewer info
           Row(
             children: [
               CircleAvatar(
                 radius: 14,
                 backgroundColor: Colors.blue[200],
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  initial,
                   style: const TextStyle(color: Colors.white),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  name,
+                  name.isNotEmpty ? name : 'Anonymous',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -54,7 +64,8 @@ class ReviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          // Rating stars
+
+          // ⭐ Rating stars
           Row(
             children: List.generate(
               5,
@@ -66,7 +77,8 @@ class ReviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          // Comment
+
+          // 💬 Comment
           Expanded(
             child: Text(
               text.isNotEmpty ? text : '(No comment)',
@@ -76,7 +88,12 @@ class ReviewCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+
+          // 🗓️ Date
+          Text(
+            date,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
         ],
       ),
     );

@@ -1,6 +1,6 @@
 import 'package:carenta/user/favorite_screen/widgets/user_favorite_repository.dart';
 import 'package:flutter/material.dart';
-import 'package:carenta/service/Shared/get_car_service.dart';
+import 'package:carenta/manager/screen/manager_car_screen/service/manager_car_service.dart';
 import 'package:carenta/user/user_home_screen/car_details_screen/user_car_details_screen.dart';
 import 'package:carenta/widget/shared/car_card_widget.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
@@ -14,7 +14,7 @@ class UserHomescreen extends StatefulWidget {
 
 class _UserHomescreenState extends State<UserHomescreen> {
   final TextEditingController _searchController = TextEditingController();
-  final GetCarService _carService = GetCarService();
+  final ManagerCarService _carService = ManagerCarService();
   final _favRepo = UserFavoritesRepository();
 
   List<Map<String, dynamic>> _allCars = [];
@@ -133,6 +133,29 @@ class _UserHomescreenState extends State<UserHomescreen> {
     super.dispose();
   }
 
+  Map<String, dynamic> _normalizeCarData(Map<String, dynamic> raw) {
+  return {
+    'carid': raw['carid'] ?? raw['id'],
+    'manufacturer': raw['manufacturer'] ?? raw['brand'] ?? '',
+    'model': raw['model'] ?? raw['name'] ?? '',
+    'type': raw['type'] ?? raw['car_type'] ?? '',
+    'color': raw['color'] ?? '',
+    'milage': raw['milage']?.toString() ?? raw['mileage']?.toString() ?? '',
+    'transmission': raw['transmission'] ?? '',
+    'fueltype': raw['fueltype'] ?? raw['fuel_type'] ?? '',
+    'seatingcap': raw['seatingcap']?.toString() ?? raw['seating_capacity']?.toString() ?? '',
+    'status': raw['status'] ?? '',
+    'withDriver': raw['withDriver'] ?? raw['with_driver'] ?? 'No',
+    'daily_rate': raw['daily_rate'] ?? raw['price'] ?? 0,
+    'currency': raw['currency'] ?? 'PHP',
+    'media_url': raw['media_url'] ??
+        raw['thumbnail_url'] ??
+        raw['image_url'] ??
+        'https://via.placeholder.com/600x400?text=No+Image',
+  };
+}
+
+
   /// ✅ UI
   @override
   Widget build(BuildContext context) {
@@ -195,11 +218,11 @@ class _UserHomescreenState extends State<UserHomescreen> {
                                 showStatus: false,
                                 compactMode: true,
                                 onTap: () {
+                                  debugPrint('🚗 Car tapped: ${_normalizeCarData(car)}');
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder:
-                                          (_) => UserCarDetailsScreen(car: car),
+                                      builder: (_) => UserCarDetailsScreen(car: _normalizeCarData(car)),
                                     ),
                                   );
                                 },

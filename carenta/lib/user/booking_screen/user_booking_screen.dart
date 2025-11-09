@@ -178,9 +178,8 @@ class _UserBookingScreenState extends State<UserBookingScreen> {
                                 context,
                                 MaterialPageRoute(
                                   builder:
-                                      (_) => BookingDetailsScreen(
+                                      (_) => UserBookingDetailScreen(
                                         booking: r,
-                                        userId: _userId,
                                       ),
                                 ),
                               );

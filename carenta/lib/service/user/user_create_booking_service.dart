@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:carenta/service/config/service_base_url.dart';
 
-/// BookingResult maps the response from add_booking.php
+/// BookingResult maps the response from create_booking.php
 class BookingResult {
   final bool success;
   final String message;
@@ -67,8 +67,11 @@ class BookingResult {
       return null;
     }
 
+    // Support both {success: true} and {ok: true}
+    final okFlag = json.containsKey('success') ? json['success'] : json['ok'];
+
     return BookingResult(
-      success: toBool(json['success']),
+      success: toBool(okFlag),
       message: (json['message'] ?? '').toString(),
       rentalId: toIntOrNull(json['rental_id'] ?? json['rentalId']),
       carId: toIntOrNull(json['carid'] ?? json['carId']),
@@ -77,18 +80,10 @@ class BookingResult {
       startTime: pickStr(json, ['start_time', 'startTime']),
       endDate: pickStr(json, ['end_date', 'endDate']),
       endTime: pickStr(json, ['end_time', 'endTime']),
-      days: toIntOrNull(json['days']),
+      days: toIntOrNull(json['days'] ?? json['total_days']),
       totalAmount: toDoubleOrNull(json['total_amount'] ?? json['totalAmount']),
-      pickupLocation: pickStr(json, [
-        'pickup_location',
-        'pickupLocation',
-        'pickup',
-      ]),
-      dropoffLocation: pickStr(json, [
-        'dropoff_location',
-        'dropoffLocation',
-        'dropoff',
-      ]),
+      pickupLocation: pickStr(json, ['pickup_location', 'pickupLocation', 'pickup']),
+      dropoffLocation: pickStr(json, ['dropoff_location', 'dropoffLocation', 'dropoff']),
       status: pickStr(json, ['status']),
       raw: json,
     );
@@ -99,13 +94,15 @@ class BookingResult {
   }
 }
 
-/// ✅ Service that calls add_booking.php
+/// ✅ Service that calls create_booking.php
 class UserCreateBookingService {
   final http.Client _client;
 
   UserCreateBookingService({http.Client? client})
-    : _client = client ?? http.Client();
+      : _client = client ?? http.Client();
 
+  // Make sure this matches your actual file name & path on the server:
+  // /public_html/api/create_booking.php
   String get _endpoint => ServiceBaseUrl.endpoint("create_booking.php");
 
   /// ✅ Create a booking (User → API)
@@ -114,18 +111,20 @@ class UserCreateBookingService {
     required int carId,
     required int userId,
     required String startDate,
-    required String startTime,
     required String endDate,
+    required String startTime,
     String? endTime,
+    required int totalDays,
+    required double dailyRate,
     required double totalAmount,
     required String pickupLocation,
     required String dropoffLocation,
-    Duration timeout = const Duration(seconds: 15),
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     try {
       final uri = Uri.parse(_endpoint);
 
-      // ✅ PHP expects snake_case keys
+      // ✅ PHP usually expects snake_case keys
       final body = <String, String>{
         'carid': '$carId',
         'userid': '$userId',
@@ -135,6 +134,8 @@ class UserCreateBookingService {
         'end_time': (endTime != null && endTime.isNotEmpty) ? endTime : "00:00",
         'pickup_location': pickupLocation.isNotEmpty ? pickupLocation : "-",
         'dropoff_location': dropoffLocation.isNotEmpty ? dropoffLocation : "-",
+        'total_days': '$totalDays',                 // ✅ added
+        'daily_rate': dailyRate.toStringAsFixed(2), // ✅ added
         'total_amount': totalAmount.toStringAsFixed(2),
       };
 
@@ -164,11 +165,9 @@ class UserCreateBookingService {
       }
 
       final result = BookingResult.fromJson(json);
-      if (result.success) {
-        return result;
-      } else {
-        return BookingResult.error(result.message, raw: json);
-      }
+      return result.success
+          ? result
+          : BookingResult.error(result.message, raw: json);
     } on TimeoutException {
       return BookingResult.error('Request timed out');
     } catch (e) {
