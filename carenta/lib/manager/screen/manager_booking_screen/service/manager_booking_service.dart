@@ -1,236 +1,175 @@
-// lib/service/manager/manager_booking_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:carenta/service/config/service_base_url.dart';
 
-/// 🔹 ManagerBookingService
-/// Handles all CRUD actions for manager bookings, including:
-/// - Fetching bookings by status
-/// - Approving / Cancelling bookings
-/// - Recording Pickup / Dropoff events
+/// ===============================================================
+/// 🧩 ManagerBookingService
+/// Handles all CRUD and status-cycle operations for manager bookings:
+///   pending → confirmed → ongoing → completed / cancelled
+///
+/// PHP endpoints used:
+///   - manager_bookings.php (GET)
+///   - manager_booking_action.php (POST: confirm | cancel)
+///   - manager_record_pickup.php (POST: pickup)
+///   - manager_record_dropoff.php (POST: dropoff)
+/// ===============================================================
 class ManagerBookingService {
   final http.Client _client;
-
   ManagerBookingService({http.Client? client})
-      : _client = client ?? http.Client();
+    : _client = client ?? http.Client();
 
-  // 🧩 API endpoints
+  // === API endpoints ===
   String get fetchUrl => ServiceBaseUrl.endpoint("manager_bookings.php");
   String get actionUrl => ServiceBaseUrl.endpoint("manager_booking_action.php");
   String get pickupUrl => ServiceBaseUrl.endpoint("manager_record_pickup.php");
-  String get dropoffUrl => ServiceBaseUrl.endpoint("manager_record_dropoff.php");
+  String get dropoffUrl =>
+      ServiceBaseUrl.endpoint("manager_record_dropoff.php");
 
-  /// ✅ Fetch bookings (optionally filtered by status)
+  // ============================================================
+  // ✅ Fetch Bookings (optionally by status)
+  // ============================================================
   Future<Map<String, dynamic>> fetchBookings({
     String? status,
     int limit = 100,
     int offset = 0,
     String order = 'desc',
   }) async {
-    final uri = Uri.parse(fetchUrl).replace(queryParameters: {
-      if (status != null && status.isNotEmpty) 'status': status,
-      'limit': '$limit',
-      'offset': '$offset',
-      'order': order,
-    });
-    debugPrint('GET $uri');
+    final uri = Uri.parse(fetchUrl).replace(
+      queryParameters: {
+        if (status != null && status.isNotEmpty) 'status': status,
+        'limit': '$limit',
+        'offset': '$offset',
+        'order': order,
+      },
+    );
 
     try {
       final res = await _client.get(uri);
       if (res.statusCode != 200) {
-        return {"success": false, "message": "Server error: ${res.statusCode}"};
+        return {"ok": false, "message": "Server error: ${res.statusCode}"};
       }
 
       final data = jsonDecode(res.body);
-      if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
-        final List raw = (data['data'] ?? []) as List;
-        final bookings = raw.map<Map<String, dynamic>>((row) {
-          final r = Map<String, dynamic>.from(row);
-          r['cancellation_reason'] = r['cancellation_reason'] ?? '';
-          r['cancelled_by'] = r['cancelled_by'] ?? '';
-          r['cancelled_at'] = r['cancelled_at'] ?? '';
-          r['admin_notes'] = r['admin_notes'] ?? '';
-          r['pickup_location'] = r['pickup_location'] ?? '';
-          r['dropoff_location'] = r['dropoff_location'] ?? '';
-          r['start_date'] = r['start_date'] ?? '';
-          r['start_time'] = r['start_time'] ?? '';
-          r['end_date'] = r['end_date'] ?? '';
-          r['end_time'] = r['end_time'] ?? '';
-          return r;
-        }).toList();
-
+      if (data is Map && data['ok'] == true) {
+        final List bookings = (data['data'] ?? []) as List;
         return {
-          "status": "success",
-          "message": "Bookings fetched",
+          "ok": true,
           "count": data['count'] ?? bookings.length,
+          "message": "Bookings fetched successfully",
           "data": bookings,
         };
       }
-
       return {
-        "success": false,
-        "message": data is Map
-            ? (data['message'] ?? data['error'] ?? "Unknown error")
-            : "Unexpected server response",
+        "ok": false,
+        "message":
+            data is Map
+                ? (data['message'] ?? data['error'] ?? "Unknown error")
+                : "Unexpected server response",
       };
     } catch (e, st) {
       if (kDebugMode) debugPrint("fetchBookings error: $e\n$st");
-      return {"success": false, "message": "Exception: $e"};
+      return {"ok": false, "message": "Exception: $e"};
     }
   }
 
-  /// ✅ Approve booking (Confirm)
-  Future<Map<String, dynamic>> approveBooking({
-    required int rentalId,
-    required int managerId,
+  // ============================================================
+  // ✅ Common POST action handler
+  // ============================================================
+  Future<Map<String, dynamic>> _post(
+    String url,
+    Map<String, String> body, {
+    String successMsg = 'Action successful',
   }) async {
-    final uri = Uri.parse(actionUrl);
-    final body = {
-      'rental_id': '$rentalId',
-      'action': 'confirm',
-      'admin_id': '$managerId',
-    };
-    debugPrint('POST $uri  body=$body');
-
+    debugPrint('[POST] $url  BODY=$body');
     try {
-      final res = await _client.post(uri, body: body);
-      debugPrint('RESP ${res.statusCode}: ${res.body}');
+      final res = await _client.post(Uri.parse(url), body: body);
+      debugPrint('[RESP] ${res.statusCode}: ${res.body}');
       if (res.statusCode != 200) {
-        return {"success": false, "message": "Server error: ${res.statusCode}"};
+        return {"ok": false, "message": "Server error: ${res.statusCode}"};
       }
 
       final data = jsonDecode(res.body);
-      if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
+      if (data is Map && data['ok'] == true) {
         return {
-          "status": "success",
-          "message": data['message'] ?? "Booking confirmed",
+          "ok": true,
+          "status": data['status'],
+          "message": data['message'] ?? successMsg,
         };
       }
       return {
-        "success": false,
+        "ok": false,
         "message":
-            data['message'] ?? data['error'] ?? "Failed to confirm booking",
+            data is Map
+                ? (data['message'] ?? data['error'] ?? "Unknown response")
+                : "Invalid response",
       };
-    } catch (e) {
-      return {"success": false, "message": e.toString()};
+    } catch (e, st) {
+      if (kDebugMode) debugPrint("_post error: $e\n$st");
+      return {"ok": false, "message": "Exception: $e"};
     }
   }
 
-  /// ✅ Cancel booking
+  // ============================================================
+  // ✅ Confirm Booking (Pending → Confirmed)
+  // ============================================================
+  Future<Map<String, dynamic>> confirmBooking({
+    required int rentalId,
+    required int managerId,
+  }) async {
+    return _post(actionUrl, {
+      'rental_id': '$rentalId',
+      'admin_id': '$managerId',
+      'action': 'confirm',
+    }, successMsg: 'Booking confirmed');
+  }
+
+  // ============================================================
+  // ✅ Cancel Booking (any stage before completion)
+  // ============================================================
   Future<Map<String, dynamic>> cancelBooking({
     required int rentalId,
     required int managerId,
     String? reason,
   }) async {
-    final uri = Uri.parse(actionUrl);
-    final body = {
+    return _post(actionUrl, {
       'rental_id': '$rentalId',
-      'action': 'cancel',
       'admin_id': '$managerId',
+      'action': 'cancel',
       if (reason != null && reason.isNotEmpty) 'reason': reason,
-    };
-    debugPrint('POST $uri  body=$body');
-
-    try {
-      final res = await _client.post(uri, body: body);
-      debugPrint('RESP ${res.statusCode}: ${res.body}');
-      if (res.statusCode != 200) {
-        return {"success": false, "message": "Server error: ${res.statusCode}"};
-      }
-
-      final data = jsonDecode(res.body);
-      if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
-        return {
-          "status": "success",
-          "message": data['message'] ?? "Booking cancelled",
-        };
-      }
-      return {
-        "success": false,
-        "message":
-            data['message'] ?? data['error'] ?? "Failed to cancel booking",
-      };
-    } catch (e) {
-      return {"success": false, "message": e.toString()};
-    }
+    }, successMsg: 'Booking cancelled');
   }
 
-  /// ✅ Record car pickup (set to ongoing)
+  // ============================================================
+  // ✅ Record Pickup (Confirmed → Ongoing)
+  // ============================================================
   Future<Map<String, dynamic>> recordPickup({
     required int rentalId,
     required int managerId,
     String? remark,
   }) async {
-    final uri = Uri.parse(pickupUrl);
-    final body = {
+    return _post(pickupUrl, {
       'rental_id': '$rentalId',
       'manager_id': '$managerId',
       'action': 'pickup',
       if (remark != null && remark.isNotEmpty) 'remark': remark,
-    };
-    debugPrint('POST $uri  body=$body');
-
-    try {
-      final res = await _client.post(uri, body: body);
-      debugPrint('RESP ${res.statusCode}: ${res.body}');
-      if (res.statusCode != 200) {
-        return {"success": false, "message": "Server error: ${res.statusCode}"};
-      }
-
-      final data = jsonDecode(res.body);
-      if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
-        return {
-          "status": "success",
-          "message": data['message'] ?? "Pickup recorded successfully",
-        };
-      }
-      return {
-        "success": false,
-        "message": data['message'] ?? data['error'] ?? "Failed to record pickup",
-      };
-    } catch (e) {
-      return {"success": false, "message": e.toString()};
-    }
+    }, successMsg: 'Pickup recorded successfully');
   }
 
-  /// ✅ Record car dropoff (set to completed)
+  // ============================================================
+  // ✅ Record Dropoff (Ongoing → Completed → Maintenance)
+  // ============================================================
   Future<Map<String, dynamic>> recordDropoff({
     required int rentalId,
     required int managerId,
     String? remark,
   }) async {
-    final uri = Uri.parse(dropoffUrl);
-    final body = {
+    return _post(dropoffUrl, {
       'rental_id': '$rentalId',
       'manager_id': '$managerId',
       'action': 'dropoff',
       if (remark != null && remark.isNotEmpty) 'remark': remark,
-    };
-    debugPrint('POST $uri  body=$body');
-
-    try {
-      final res = await _client.post(uri, body: body);
-      debugPrint('RESP ${res.statusCode}: ${res.body}');
-      if (res.statusCode != 200) {
-        return {"success": false, "message": "Server error: ${res.statusCode}"};
-      }
-
-      final data = jsonDecode(res.body);
-      if (data is Map && (data['ok'] == true || data['status'] == 'success')) {
-        return {
-          "status": "success",
-          "message": data['message'] ?? "Drop-off recorded successfully",
-        };
-      }
-      return {
-        "success": false,
-        "message":
-            data['message'] ?? data['error'] ?? "Failed to record drop-off",
-      };
-    } catch (e) {
-      return {"success": false, "message": e.toString()};
-    }
+    }, successMsg: 'Drop-off recorded successfully');
   }
 
   void close() => _client.close();

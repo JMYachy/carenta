@@ -1,9 +1,14 @@
-import 'package:carenta/user/user_home_screen/booking_payment_screen/service/booking_payment_service.dart';
-import 'package:carenta/user/user_home_screen/booking_payment_screen/widget/payment_method_tile.dart';
-import 'package:carenta/user/user_home_screen/booking_payment_screen/widget/payment_summary_card.dart';
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'package:carenta/user/user_home_screen/booking_payment_screen/service/booking_payment_service.dart';
+import 'package:carenta/user/user_home_screen/booking_payment_screen/widget/payment_method_tile.dart';
+import 'package:carenta/user/user_home_screen/booking_payment_screen/widget/payment_summary_card.dart';
+import 'package:carenta/user/booking_screen/user_booking_screen.dart';
 
 class BookingPaymentScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -13,18 +18,51 @@ class BookingPaymentScreen extends StatefulWidget {
   State<BookingPaymentScreen> createState() => _BookingPaymentScreenState();
 }
 
-class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
+class _BookingPaymentScreenState extends State<BookingPaymentScreen>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _currencyFmt = NumberFormat('#,##0.##');
+  final _paymentSvc = BookingPaymentService();
 
   String _selectedMethod = '';
-  String _selectedPhase = 'deposit'; // default: deposit
+  String _selectedPhase = 'deposit';
   bool _loading = false;
+
+  Timer? _pollTimer;
+  bool _isPolling = false;
+  int _pollSeconds = 0;
+  String? _referenceNo;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
+    _paymentSvc.close();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        !_isPolling &&
+        _referenceNo != null) {
+      _startPollingPaymentStatus(_referenceNo!);
+    }
+  }
 
   void _onMethodSelected(String method) {
     setState(() => _selectedMethod = method);
   }
 
+  // ============================================================
+  // 🔥 CONFIRM PAYMENT — CREATE CHECKOUT SESSION
+  // ============================================================
   Future<void> _onConfirm() async {
     if (_selectedMethod.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -36,95 +74,141 @@ class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
     setState(() => _loading = true);
 
     try {
-      // Validate IDs
-      final rentalIdRaw = widget.booking['rentalid'] ?? widget.booking['rental_id'];
-      final userIdRaw = widget.booking['userid'] ?? widget.booking['user_id'];
+      final booking = widget.booking;
 
-      if (rentalIdRaw == null || userIdRaw == null) {
+      // ✅ FIX: Get userId from SessionAccount object
+      final session = await SessionManagerService.getSession();
+      if (session == null || session.userId == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Missing booking or user information.")),
+          const SnackBar(content: Text("Session error. Please log in again.")),
         );
-        setState(() => _loading = false);
         return;
       }
+      final userId = session.userId;
 
-      final rentalId = int.tryParse(rentalIdRaw.toString()) ?? 0;
-      final userId = int.tryParse(userIdRaw.toString()) ?? 0;
+      final total = double.tryParse(booking['total_amount'].toString()) ?? 0.0;
 
-      if (rentalId == 0 || userId == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Invalid booking data.")),
-        );
-        setState(() => _loading = false);
-        return;
-      }
+      final amount = _selectedPhase == 'deposit' ? (total * 0.3) : total;
 
       // 🔗 Create PayMongo checkout session
-      final result = await BookingPaymentService.createCheckout(
-        rentalId: rentalId,
+      final result = await _paymentSvc.createCheckout(
         userId: userId,
+        carId: booking['car_id'],
+        startDate: booking['start_date'],
+        startTime: booking['start_time'],
+        endDate: booking['end_date'],
+        endTime: booking['end_time'],
+        pickupLocation: booking['pickup_location'],
+        dropoffLocation: booking['dropoff_location'],
+        amount: amount,
+        method: _selectedMethod,
         phase: _selectedPhase,
         depositPercent: 30.0,
       );
 
-      if (result.ok && result.checkoutUrl != null && result.checkoutUrl!.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Redirecting to PayMongo Checkout...")),
-        );
+      final checkoutUrl = result['checkoutUrl'];
+      _referenceNo = result['referenceNo'];
 
-        // 🧭 Open the checkout link safely
-        await _openCheckout(result.checkoutUrl!);
-      } else {
+      if (checkoutUrl == null || checkoutUrl.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: ${result.message ?? 'Failed to create checkout.'}")),
+          const SnackBar(content: Text("Failed to create checkout session.")),
         );
+        return;
       }
+
+      // 🧭 Open PayMongo checkout page
+      await _openCheckout(checkoutUrl);
+
+      // Start polling
+      _startPollingPaymentStatus(_referenceNo!);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Error: $e")));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-
   Future<void> _openCheckout(String url) async {
     final uri = Uri.parse(url);
-
-    // Try to open in an external browser (Chrome, etc.)
     try {
       if (await canLaunchUrl(uri)) {
-        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (launched) return;
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri, mode: LaunchMode.inAppWebView);
       }
-
-      // Fallback to in-app WebView if no external browser is available
-      await launchUrl(uri, mode: LaunchMode.inAppWebView);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to open checkout: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to open checkout: $e")));
     }
   }
 
+  // ============================================================
+  // 🔄 POLL PAYMENT STATUS UNTIL PAID
+  // ============================================================
+  void _startPollingPaymentStatus(String referenceNo) {
+    if (_isPolling) return;
 
+    _isPolling = true;
+    _pollSeconds = 0;
+
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (t) async {
+      _pollSeconds += 3;
+
+      try {
+        final status = await _paymentSvc.checkPaymentStatus(referenceNo);
+
+        if (status == 'paid') {
+          t.cancel();
+          _isPolling = false;
+
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("✅ Payment confirmed!")));
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const UserBookingScreen()),
+            (route) => false,
+          );
+        }
+      } catch (_) {}
+
+      if (_pollSeconds >= 120) {
+        t.cancel();
+        _isPolling = false;
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Payment still pending. Check your bookings."),
+          ),
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const UserBookingScreen()),
+          (route) => false,
+        );
+      }
+    });
+  }
+
+  // ============================================================
+  // UI
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     final booking = widget.booking;
 
-    // ✅ Safe fallbacks for missing data
-    final total = double.tryParse(booking['total_amount']?.toString() ?? '0') ?? 0.0;
-    final currency = (booking['currency'] ?? 'PHP').toString().toUpperCase();
-    final days = int.tryParse(booking['days']?.toString() ?? '0') ?? 0;
-    final carName = booking['car_name']?.toString() ?? 'Unknown Vehicle';
-    final pickup = booking['pickup_location']?.toString() ?? 'N/A';
-    final dropoff = booking['dropoff_location']?.toString() ?? 'N/A';
+    final total = double.tryParse(booking['total_amount'].toString()) ?? 0.0;
 
-    // 🧮 Dynamic total depending on phase (deposit/full)
-    final displayTotal = _selectedPhase == 'deposit'
-        ? (total * 0.3)
-        : total;
+    final displayTotal = _selectedPhase == 'deposit' ? (total * 0.3) : total;
+
+    final currency = (booking['currency'] ?? 'PHP').toString().toUpperCase();
 
     return Scaffold(
       appBar: AppBar(
@@ -146,16 +230,23 @@ class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: _loading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
-                  )
-                : const Text('Confirm Payment',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            child:
+                _loading
+                    ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                    : const Text(
+                      'Confirm Payment',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
           ),
         ),
       ),
@@ -164,21 +255,21 @@ class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // 🧾 Booking Summary
             PaymentSummaryCard(
-              carName: carName,
-              days: days,
-              pickup: pickup,
-              dropoff: dropoff,
+              carName: booking['car_name'],
+              days: booking['days'],
+              pickup: booking['pickup_location'],
+              dropoff: booking['dropoff_location'],
               total: displayTotal,
               currency: currency,
               currencyFmt: _currencyFmt,
             ),
             const SizedBox(height: 20),
 
-            // 💰 Payment Option
-            const Text("Select Payment Option",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text(
+              "Select Payment Option",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
             Row(
               children: [
                 Expanded(
@@ -203,11 +294,13 @@ class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
                 ),
               ],
             ),
+
             const Divider(height: 32),
 
-            // 💳 Payment Method
-            const Text("Select Payment Method",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const Text(
+              "Select Payment Method",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 10),
 
             PaymentMethodTile(
@@ -221,12 +314,6 @@ class _BookingPaymentScreenState extends State<BookingPaymentScreen> {
               icon: Icons.credit_card,
               selected: _selectedMethod == 'card',
               onTap: () => _onMethodSelected('card'),
-            ),
-            PaymentMethodTile(
-              label: "Cash on Pickup",
-              icon: Icons.money,
-              selected: _selectedMethod == 'cash',
-              onTap: () => _onMethodSelected('cash'),
             ),
           ],
         ),

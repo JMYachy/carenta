@@ -1,9 +1,9 @@
-import 'package:carenta/user/favorite_screen/widgets/user_favorite_repository.dart';
+import 'package:carenta/user/user_home_screen/service/user_car_service.dart';
 import 'package:flutter/material.dart';
-import 'package:carenta/manager/screen/manager_car_screen/service/manager_car_service.dart';
 import 'package:carenta/user/user_home_screen/car_details_screen/user_car_details_screen.dart';
 import 'package:carenta/widget/shared/car_card_widget.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'package:carenta/user/favorite_screen/widgets/user_favorite_repository.dart';
 
 class UserHomescreen extends StatefulWidget {
   const UserHomescreen({super.key});
@@ -12,9 +12,9 @@ class UserHomescreen extends StatefulWidget {
   State<UserHomescreen> createState() => _UserHomescreenState();
 }
 
-class _UserHomescreenState extends State<UserHomescreen> {
+class _UserHomescreenState extends State<UserHomescreen> with RouteAware {
   final TextEditingController _searchController = TextEditingController();
-  final ManagerCarService _carService = ManagerCarService();
+  final UserCarService _carService = UserCarService();
   final _favRepo = UserFavoritesRepository();
 
   List<Map<String, dynamic>> _allCars = [];
@@ -29,16 +29,12 @@ class _UserHomescreenState extends State<UserHomescreen> {
     _searchController.addListener(_filterCars);
   }
 
-  /// ✅ Get renter session and load cars
   Future<void> _initAndFetch() async {
     setState(() => _isLoading = true);
     try {
       final session = await SessionManagerService.checkSession();
       if (session['success'] == true) {
-        final id = session['data']?['userid'];
-        if (id != null) {
-          _userId = id;
-        }
+        _userId = session['data']?['userid'];
       }
       await _fetchCars();
     } catch (e) {
@@ -49,29 +45,31 @@ class _UserHomescreenState extends State<UserHomescreen> {
     }
   }
 
-  /// ✅ Fetch cars and favorite list together
+  /// ✅ Fetch cars + refresh favorite states
   Future<void> _fetchCars() async {
     setState(() => _isLoading = true);
     try {
-      final cars = await _carService.getCars();
-      final favs =
-          _userId != null ? await _favRepo.listFavoriteIds(_userId!) : <int>[];
+      final cars = await _carService.fetchCars();
 
-      if (!mounted) return;
+      List<int> favs = [];
+      if (_userId != null) {
+        favs = await _favRepo.listFavoriteIds(_userId!);
+      }
 
       final normalized =
           cars.map<Map<String, dynamic>>((c) {
             final id = _extractCarId(c);
             final isFav = favs.contains(id);
-            final rating = _extractRating(c);
-            return {...c, 'carid': id, 'is_favorite': isFav, 'rating': rating};
+            return {...c, 'carid': id, 'is_favorite': isFav};
           }).toList();
 
-      setState(() {
-        _allCars = normalized;
-        _filteredCars = normalized;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allCars = normalized;
+          _filteredCars = normalized;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -81,7 +79,11 @@ class _UserHomescreenState extends State<UserHomescreen> {
     }
   }
 
-  /// --- Helpers ---------------------------------------------------------------
+  /// Refresh favorites when returning from another screen
+  @override
+  void didPopNext() {
+    _fetchCars();
+  }
 
   int _extractCarId(Map<String, dynamic> car) {
     final raw = car['carid'] ?? car['id'];
@@ -89,29 +91,18 @@ class _UserHomescreenState extends State<UserHomescreen> {
     return int.tryParse('${raw ?? 0}') ?? 0;
   }
 
-  double _extractRating(Map<String, dynamic> car) {
-    final v = car['rating'] ?? car['average_rating'] ?? 0;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString()) ?? 0;
-  }
-
   void _filterCars() {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredCars =
           _allCars.where((car) {
-            final name =
-                (car['name'] ?? car['model'] ?? '').toString().toLowerCase();
-            final brand =
-                (car['brand'] ?? car['manufacturer'] ?? '')
-                    .toString()
-                    .toLowerCase();
-            return name.contains(query) || brand.contains(query);
+            final model = (car['model'] ?? '').toString().toLowerCase();
+            final brand = (car['manufacturer'] ?? '').toString().toLowerCase();
+            return model.contains(query) || brand.contains(query);
           }).toList();
     });
   }
 
-  /// ✅ Keep favorite state persistent
   void _applyFavoriteLocally(int carId, bool isFav) {
     for (var i = 0; i < _allCars.length; i++) {
       if (_extractCarId(_allCars[i]) == carId) {
@@ -134,29 +125,28 @@ class _UserHomescreenState extends State<UserHomescreen> {
   }
 
   Map<String, dynamic> _normalizeCarData(Map<String, dynamic> raw) {
-  return {
-    'carid': raw['carid'] ?? raw['id'],
-    'manufacturer': raw['manufacturer'] ?? raw['brand'] ?? '',
-    'model': raw['model'] ?? raw['name'] ?? '',
-    'type': raw['type'] ?? raw['car_type'] ?? '',
-    'color': raw['color'] ?? '',
-    'milage': raw['milage']?.toString() ?? raw['mileage']?.toString() ?? '',
-    'transmission': raw['transmission'] ?? '',
-    'fueltype': raw['fueltype'] ?? raw['fuel_type'] ?? '',
-    'seatingcap': raw['seatingcap']?.toString() ?? raw['seating_capacity']?.toString() ?? '',
-    'status': raw['status'] ?? '',
-    'withDriver': raw['withDriver'] ?? raw['with_driver'] ?? 'No',
-    'daily_rate': raw['daily_rate'] ?? raw['price'] ?? 0,
-    'currency': raw['currency'] ?? 'PHP',
-    'media_url': raw['media_url'] ??
-        raw['thumbnail_url'] ??
-        raw['image_url'] ??
-        'https://via.placeholder.com/600x400?text=No+Image',
-  };
-}
+    return {
+      'carid': raw['carid'] ?? raw['id'],
+      'manufacturer': raw['manufacturer'] ?? '',
+      'model': raw['model'] ?? '',
+      'type': raw['type'] ?? '',
+      'color': raw['color'] ?? '',
+      'milage': raw['milage'] ?? '',
+      'transmission': raw['transmission'] ?? '',
+      'fueltype': raw['fueltype'] ?? '',
+      'seatingcap': raw['seatingcap'] ?? '',
+      'status': raw['status'] ?? '',
+      'withDriver': raw['withDriver'] ?? 'No',
+      'daily_rate': raw['daily_rate'] ?? 0,
+      'currency': raw['currency'] ?? 'PHP',
+      'media_url':
+          raw['media_url'] ??
+          raw['thumbnail_url'] ??
+          raw['image_url'] ??
+          'https://via.placeholder.com/600x400?text=No+Image',
+    };
+  }
 
-
-  /// ✅ UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,25 +199,25 @@ class _UserHomescreenState extends State<UserHomescreen> {
                           itemBuilder: (context, index) {
                             final car = _filteredCars[index];
                             final carId = _extractCarId(car);
-                            final rating = _extractRating(car);
+                            final isFav = car['is_favorite'] ?? false;
 
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
                               child: CarCardWidget(
-                                car: {...car, 'rating': rating},
+                                car: {...car, 'is_favorite': isFav},
                                 showStatus: false,
                                 compactMode: true,
                                 onTap: () {
-                                  debugPrint('🚗 Car tapped: ${_normalizeCarData(car)}');
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => UserCarDetailsScreen(car: _normalizeCarData(car)),
+                                      builder:
+                                          (_) => UserCarDetailsScreen(
+                                            car: _normalizeCarData(car),
+                                          ),
                                     ),
                                   );
                                 },
-
-                                /// ❤️ Favorite toggle (persistent)
                                 onFavoriteChangedAsync: (bool becomeFav) async {
                                   final ok = await _favRepo.toggleFavorite(
                                     carId,

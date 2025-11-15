@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:carenta/service/user/user_messaging_service.dart';
+import 'package:carenta/user/inbox_screen/service/user_messaging_service.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -41,7 +41,10 @@ class _UserMessagesScreenState extends State<UserMessagesScreen> {
 
   void _startPolling() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) => _loadMessages());
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => _loadMessages(),
+    );
   }
 
   Future<void> _loadMessages() async {
@@ -58,9 +61,9 @@ class _UserMessagesScreenState extends State<UserMessagesScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading messages: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading messages: $e')));
     }
   }
 
@@ -89,9 +92,9 @@ class _UserMessagesScreenState extends State<UserMessagesScreen> {
       _msgC.clear();
       await _loadMessages();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send message')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to send message')));
     }
   }
 
@@ -112,68 +115,80 @@ class _UserMessagesScreenState extends State<UserMessagesScreen> {
       child: Column(
         children: [
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
+            child:
+                _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _messages.isEmpty
                     ? const Center(child: Text("No messages yet"))
                     : ListView.builder(
-                        reverse: true, // 👈 newest at bottom
-                        controller: _scrollC,
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[index];
-                          final time = DateFormat('MMM d, h:mm a').format(msg.sentAt);
-                          final isUser = msg.isUser;
+                      reverse: true, // 👈 newest at bottom
+                      controller: _scrollC,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final msg = _messages[index];
+                        final time = DateFormat(
+                          'MMM d, h:mm a',
+                        ).format(msg.sentAt);
+                        final isUser = msg.isUser;
 
-                          return Align(
-                            alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.all(12),
-                              constraints: BoxConstraints(
-                                maxWidth: MediaQuery.of(context).size.width * 0.7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isUser
-                                    ? cs.primary.withOpacity(0.9)
-                                    : Colors.grey.shade200,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(16),
-                                  topRight: const Radius.circular(16),
-                                  bottomLeft: isUser
-                                      ? const Radius.circular(16)
-                                      : const Radius.circular(0),
-                                  bottomRight: isUser
-                                      ? const Radius.circular(0)
-                                      : const Radius.circular(16),
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    msg.message,
-                                    style: TextStyle(
-                                      color: isUser ? Colors.white : Colors.black87,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    time,
-                                    style: TextStyle(
-                                      color:
-                                          isUser ? Colors.white70 : Colors.black54,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
+                        return Align(
+                          alignment:
+                              isUser
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.all(12),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.7,
+                            ),
+                            decoration: BoxDecoration(
+                              color:
+                                  isUser
+                                      ? cs.primary.withOpacity(0.9)
+                                      : Colors.grey.shade200,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft:
+                                    isUser
+                                        ? const Radius.circular(16)
+                                        : const Radius.circular(0),
+                                bottomRight:
+                                    isUser
+                                        ? const Radius.circular(0)
+                                        : const Radius.circular(16),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg.message,
+                                  style: TextStyle(
+                                    color:
+                                        isUser ? Colors.white : Colors.black87,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  time,
+                                  style: TextStyle(
+                                    color:
+                                        isUser
+                                            ? Colors.white70
+                                            : Colors.black54,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
           ),
 
           // Input field
@@ -207,18 +222,20 @@ class _UserMessagesScreenState extends State<UserMessagesScreen> {
                   const SizedBox(width: 8),
                   _sending
                       ? const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : IconButton(
-                          onPressed: _sendMessage,
-                          icon: const Icon(Icons.send_rounded,
-                              color: Colors.deepOrange),
+                        padding: EdgeInsets.all(8.0),
+                        child: SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
+                      )
+                      : IconButton(
+                        onPressed: _sendMessage,
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.deepOrange,
+                        ),
+                      ),
                 ],
               ),
             ),

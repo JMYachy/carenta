@@ -1,12 +1,19 @@
-import 'package:carenta/service/user/user_profile_service.dart';
-import 'package:carenta/user/profile_screen/user_vertification_screen.dart';
+import 'dart:io';
+import 'package:carenta/user/profile_screen/service/user_profile_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileEditTab extends StatefulWidget {
   final VoidCallback onBack;
   final int? userId;
-  const ProfileEditTab({super.key, required this.onBack, this.userId});
+  final bool requireAllFields;
+  const ProfileEditTab({
+    super.key,
+    required this.onBack,
+    this.userId,
+    this.requireAllFields = true,
+  });
 
   @override
   State<ProfileEditTab> createState() => _ProfileEditTabState();
@@ -14,194 +21,255 @@ class ProfileEditTab extends StatefulWidget {
 
 class _ProfileEditTabState extends State<ProfileEditTab> {
   final _svc = UserProfileService();
+  final _formKey = GlobalKey<FormState>();
+  final _picker = ImagePicker();
 
-  bool _loading = true;
-  bool _showPasswordSection = false;
-  Map<String, dynamic>? _profile;
+  final _firstName = TextEditingController();
+  final _lastName = TextEditingController();
+  final _username = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _address = TextEditingController();
+  final _city = TextEditingController();
+  final _birthdate = TextEditingController();
+  String _gender = "Male";
 
-  // controllers
-  final _firstC = TextEditingController();
-  final _lastC = TextEditingController();
-  final _emailC = TextEditingController();
-  final _phoneC = TextEditingController();
-  final _addressC = TextEditingController();
-  final _cityC = TextEditingController();
-
-  final _currentPwC = TextEditingController();
-  final _newPwC = TextEditingController();
-  final _confirmPwC = TextEditingController();
+  File? _profileImage;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    _load();
   }
 
-  Future<void> _fetchProfile() async {
+  Future<void> _load() async {
     if (widget.userId == null) return;
-    try {
-      final res = await _svc.fetchProfile(widget.userId!);
-      if (res['status'] == 'success' && res['data'] != null) {
-        final data = Map<String, dynamic>.from(res['data'] as Map);
-        setState(() {
-          _profile = data;
-          _firstC.text = data['first_name'] ?? '';
-          _lastC.text = data['last_name'] ?? '';
-          _emailC.text = data['email'] ?? '';
-          _phoneC.text = data['phone_number'] ?? '';
-          _addressC.text = data['street_address'] ?? '';
-          _cityC.text = data['city'] ?? '';
-          _loading = false;
-        });
-      } else {
-        throw Exception('Profile not found');
-      }
-    } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile: $e')),
-      );
+    setState(() => _loading = true);
+    final res = await _svc.fetchProfile(widget.userId!);
+    setState(() => _loading = false);
+
+    final data = (res['data'] ?? {}) as Map<String, dynamic>;
+    _firstName.text = (data['first_name'] ?? '').toString();
+    _lastName.text = (data['last_name'] ?? '').toString();
+    _username.text = (data['username'] ?? '').toString();
+    _email.text = (data['email'] ?? '').toString();
+    // ✅ FIX 1: Correct field name from contactno → phone_number
+    _phone.text = (data['phone_number'] ?? '').toString();
+    _address.text = (data['street_address'] ?? '').toString();
+    _city.text = (data['city'] ?? '').toString();
+    _birthdate.text = (data['birthdate'] ?? '').toString();
+    _gender = (data['gender'] ?? 'Male').toString();
+  }
+
+  String? _req(String? v) {
+    if (!widget.requireAllFields) return null;
+    if (v == null || v.trim().isEmpty) return 'Required';
+    return null;
+  }
+
+  Future<void> _pickBirthdate() async {
+    final now = DateTime.now();
+    final init = now.subtract(const Duration(days: 365 * 20));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: init,
+      firstDate: DateTime(1900),
+      lastDate: now,
+    );
+    if (picked != null) {
+      _birthdate.text = DateFormat('yyyy-MM-dd').format(picked);
+      setState(() {});
     }
   }
 
+  Future<void> _pickProfileImage() async {
+    final x = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+    );
+    if (x != null) setState(() => _profileImage = File(x.path));
+  }
+
   Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
     if (widget.userId == null) return;
+
+    setState(() => _loading = true);
     final res = await _svc.updateProfile(
       userId: widget.userId!,
-      firstName: _firstC.text.trim(),
-      lastName: _lastC.text.trim(),
-      email: _emailC.text.trim(),
-      phone: _phoneC.text.trim(),
-      address: _addressC.text.trim(),
-      city: _cityC.text.trim(),
+      firstName: _firstName.text,
+      lastName: _lastName.text,
+      username: _username.text,
+      email: _email.text,
+      // ✅ FIX 2: Pass correct argument name phoneNumber
+      phoneNumber: _phone.text,
+      address: _address.text,
+      city: _city.text,
+      birthdate: _birthdate.text,
+      gender: _gender,
+      profileImage: _profileImage,
     );
+    setState(() => _loading = false);
 
+    final ok = (res['success'] == true || res['status'] == 'success');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(res['message'] ?? 'Saved')),
+      SnackBar(
+        content: Text(
+          ok ? 'Profile updated successfully' : (res['message'] ?? 'Failed'),
+        ),
+      ),
     );
+    if (ok) widget.onBack();
   }
 
-  @override
-  void dispose() {
-    _firstC.dispose();
-    _lastC.dispose();
-    _emailC.dispose();
-    _phoneC.dispose();
-    _addressC.dispose();
-    _cityC.dispose();
-    _currentPwC.dispose();
-    _newPwC.dispose();
-    _confirmPwC.dispose();
-    super.dispose();
-  }
+  InputDecoration _deco(String label, {IconData? icon}) => InputDecoration(
+    labelText: label,
+    prefixIcon: icon != null ? Icon(icon) : null,
+    border: const OutlineInputBorder(),
+  );
+
+  Widget _row2(Widget a, Widget b) => Row(
+    children: [
+      Expanded(child: a),
+      const SizedBox(width: 12),
+      Expanded(child: b),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Personal Information",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          _buildField("First Name", _firstC),
-          _buildField("Last Name", _lastC),
-          _buildField("Email", _emailC, keyboardType: TextInputType.emailAddress),
-          _buildField("Phone", _phoneC, keyboardType: TextInputType.phone),
-          _buildField("Address", _addressC),
-          _buildField("City", _cityC),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Edit Profile',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 20),
-          FilledButton.icon(
-            onPressed: _saveProfile,
-            icon: const Icon(Icons.save),
-            label: const Text("Save Changes"),
-          ),
-
-          const SizedBox(height: 20),
-          Divider(color: cs.outlineVariant),
-          ListTile(
-            leading: const Icon(Icons.verified_user, color: Colors.green),
-            title: const Text("Account Verification"),
-            subtitle: const Text("Submit ID for verification"),
-            trailing: FilledButton.tonal(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => UserVertificationScreen(userId: widget.userId!),
+            // ✅ Profile Picture
+            Center(
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 50,
+                    backgroundImage:
+                        _profileImage != null
+                            ? FileImage(_profileImage!)
+                            : const AssetImage('assets/default_user.png')
+                                as ImageProvider,
                   ),
-                );
-              },
-              child: const Text("Verify"),
-            ),
-          ),
-
-          const SizedBox(height: 10),
-          ListTile(
-            leading: const Icon(Icons.lock_outline, color: Colors.orange),
-            title: const Text("Change Password"),
-            trailing: IconButton(
-              icon: Icon(
-                _showPasswordSection ? Icons.expand_less : Icons.expand_more,
+                  IconButton(
+                    onPressed: _pickProfileImage,
+                    icon: const Icon(
+                      Icons.camera_alt,
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                ],
               ),
-              onPressed: () =>
-                  setState(() => _showPasswordSection = !_showPasswordSection),
             ),
-          ),
-          if (_showPasswordSection)
-            _buildPasswordSection(),
 
-          const SizedBox(height: 20),
-          Center(
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.arrow_back),
-              label: const Text("Back to Profile"),
-              onPressed: widget.onBack,
+            const SizedBox(height: 16),
+
+            // ✅ Two-column short fields
+            _row2(
+              TextFormField(
+                controller: _firstName,
+                decoration: _deco('First Name', icon: Icons.person),
+                validator: _req,
+              ),
+              TextFormField(
+                controller: _lastName,
+                decoration: _deco('Last Name', icon: Icons.person_outline),
+                validator: _req,
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 12),
 
-  Widget _buildField(String label, TextEditingController c,
-      {TextInputType keyboardType = TextInputType.text}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: TextField(
-        controller: c,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            TextFormField(
+              controller: _username,
+              decoration: _deco('Username', icon: Icons.badge),
+              validator: _req,
+            ),
+            const SizedBox(height: 12),
+
+            TextFormField(
+              controller: _email,
+              decoration: _deco('Email', icon: Icons.email),
+              keyboardType: TextInputType.emailAddress,
+              validator: _req,
+            ),
+            const SizedBox(height: 12),
+
+            _row2(
+              TextFormField(
+                controller: _phone,
+                decoration: _deco('Contact Number', icon: Icons.phone),
+                keyboardType: TextInputType.phone,
+                validator: _req,
+              ),
+              DropdownButtonFormField<String>(
+                value: _gender,
+                decoration: _deco('Gender', icon: Icons.person_outline),
+                items: const [
+                  DropdownMenuItem(value: 'Male', child: Text('Male')),
+                  DropdownMenuItem(value: 'Female', child: Text('Female')),
+                  DropdownMenuItem(value: 'Other', child: Text('Other')),
+                ],
+                onChanged: (v) => setState(() => _gender = v ?? 'Male'),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            TextFormField(
+              controller: _address,
+              decoration: _deco('Address', icon: Icons.home),
+              validator: _req,
+            ),
+            const SizedBox(height: 12),
+
+            _row2(
+              TextFormField(
+                controller: _city,
+                decoration: _deco('City', icon: Icons.location_city),
+                validator: _req,
+              ),
+              TextFormField(
+                controller: _birthdate,
+                readOnly: true,
+                onTap: _pickBirthdate,
+                decoration: _deco('Birthdate', icon: Icons.cake),
+                validator: _req,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _loading ? null : _saveProfile,
+              icon: const Icon(Icons.save),
+              label: const Text("Save Changes"),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPasswordSection() {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        children: [
-          _buildField("Current Password", _currentPwC),
-          _buildField("New Password", _newPwC),
-          _buildField("Confirm New Password", _confirmPwC),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.save),
-            label: const Text("Update Password"),
-          ),
-        ],
       ),
     );
   }

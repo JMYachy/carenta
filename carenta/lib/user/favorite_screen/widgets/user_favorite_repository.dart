@@ -45,8 +45,7 @@ class UserFavoritesRepository {
     return res['status'] == 'success';
   }
 
-  /// ✅ Lightweight favorite ID list (for persistent heart states)
-  /// Used by Home and other pages to quickly know which cars are favorited.
+  /// ✅ Always fetch live favorite IDs (no cache)
   Future<List<int>> listFavoriteIds(int userId) async {
     try {
       final res = await _svc.list(userId: userId);
@@ -57,7 +56,9 @@ class UserFavoritesRepository {
             .where((id) => id > 0)
             .toList();
       }
-    } catch (_) {}
+    } catch (e) {
+      print('⚠️ listFavoriteIds error: $e');
+    }
     return [];
   }
 }

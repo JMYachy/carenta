@@ -1,6 +1,5 @@
 // lib/manager/manager_car_screen/widget/car_search_bar.dart
 import 'package:flutter/material.dart';
-import 'package:carenta/Admin/car_management/add_car.dart';
 
 class CarSearchBar extends StatelessWidget {
   final TextEditingController controller;
@@ -31,7 +30,10 @@ class CarSearchBar extends StatelessWidget {
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,

@@ -1,11 +1,10 @@
-import 'package:carenta/main/splash_screen.dart';
-import 'package:carenta/service/util_service/session_manager_service.dart';
-import 'package:carenta/user/booking_screen/user_booking_screen.dart';
-import 'package:carenta/user/favorite_screen/user_favorite_screen.dart';
-import 'package:carenta/user/profile_screen/widgets/profile_edit_tab.dart';
-import 'package:carenta/user/profile_screen/widgets/profile_header.dart';
-import 'package:carenta/user/profile_screen/widgets/profile_tile.dart';
+// lib/user/profile_screen/user_profile_screen.dart
 import 'package:flutter/material.dart';
+import 'package:carenta/service/util_service/session_manager_service.dart';
+import 'widgets/profile_header.dart';
+import 'widgets/profile_tile.dart';
+import 'widgets/profile_edit_tab.dart';
+import 'user_vertification_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({super.key});
@@ -15,11 +14,11 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  int _selectedIndex = 0;
+  int _tabIndex = 0; // 0 = profile, 1 = edit
+
   int? _userId;
-  String _userName = "";
-  String _userEmail = "";
-  String? _avatarUrl;
+  String _name = '';
+  String _email = '';
 
   @override
   void initState() {
@@ -28,144 +27,71 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _loadSession() async {
-    final session = await SessionManagerService.checkSession();
-    if (session['success'] == true) {
-      final data = session['data'];
-      setState(() {
-        _userId = data['userid'];
-        _userName = data['username'] ?? '';
-        _userEmail = data['email'] ?? '';
-      });
-    } else {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-        );
-      }
-    }
-  }
-
-  Future<void> _logout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.tonal(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-
-    await SessionManagerService.logout();
+    final session = await SessionManagerService.getSession();
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SplashScreen()),
-      (_) => false,
-    );
+
+    setState(() {
+      _userId = session?.userId;
+      _name = session?.username ?? 'User';
+      _email = session?.email ?? 'user@example.com';
+    });
   }
 
-  Widget _buildMainTab() {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            ProfileHeader(
-              name: _userName,
-              email: _userEmail,
-              avatarUrl: _avatarUrl,
-            ),
-            const SizedBox(height: 30),
+  Widget _profileHome(BuildContext context) {
+    return Column(
+      children: [
+        ProfileHeader(name: _name, email: _email),
+        const SizedBox(height: 12),
 
-            ProfileTile(
-              icon: Icons.edit_rounded,
-              title: "Edit Profile",
-              onTap: () => setState(() => _selectedIndex = 1),
-            ),
-            ProfileTile(
-              icon: Icons.history_rounded,
-              title: "Booking History",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UserBookingScreen()),
-                );
-              },
-            ),
-            ProfileTile(
-              icon: Icons.favorite_rounded,
-              title: "Favorites",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const UserFavoritesScreen()),
-                );
-              },
-            ),
-            ProfileTile(
-              icon: Icons.settings_rounded,
-              title: "Settings",
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Settings coming soon")),
-                );
-              },
-            ),
-            ProfileTile(
-              icon: Icons.help_outline_rounded,
-              title: "Help & Support",
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Help section coming soon")),
-                );
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            FilledButton.icon(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text("Logout"),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
+        ProfileTile(
+          icon: Icons.person,
+          title: 'Edit Profile',
+          onTap: () => setState(() => _tabIndex = 1),
         ),
-      ),
+        const SizedBox(height: 8),
+        ProfileTile(
+          icon: Icons.verified_user,
+          title: 'Verify Account',
+          onTap: () {
+            if (_userId == null) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => UserVertificationScreen(userId: _userId!),
+              ),
+            );
+          },
+        ),
+
+        const Spacer(),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            'Complete your profile and submit verification to be approved by admin.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    Widget body;
-    switch (_selectedIndex) {
-      case 1:
-        body = ProfileEditTab(
-          onBack: () => setState(() => _selectedIndex = 0),
-          userId: _userId,
-        );
-        break;
-      default:
-        body = _buildMainTab();
-    }
+    final body =
+        _tabIndex == 1
+            ? ProfileEditTab(
+              // ✅ pass userId so the edit screen can pre-fill ALL data (incl. phone_number)
+              userId: _userId,
+              requireAllFields: true,
+              // when user taps “Save”, go back AND refresh header data
+              onBack: () async {
+                setState(() => _tabIndex = 0);
+                await _loadSession(); // ✅ refresh name/email after update
+              },
+            )
+            : _profileHome(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),

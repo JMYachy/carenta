@@ -6,7 +6,7 @@ import 'package:carenta/service/config/service_base_url.dart';
 class AdminProfileService {
   final http.Client _client;
 
-  AdminProfileService({http.Client? client})
+  AdminProfileService(int adminId, {http.Client? client})
     : _client = client ?? http.Client();
 
   String get _getUrl => ServiceBaseUrl.endpoint("admin_profile_get.php");

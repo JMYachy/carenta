@@ -9,7 +9,6 @@ import 'package:carenta/main/splash_screen.dart';
 import 'package:carenta/service/util_service/session_manager_service.dart';
 import 'package:carenta/service/user/booking_validation_service.dart';
 import 'package:carenta/user/user_home_screen/booking_payment_screen/booking_payment_screen.dart';
-import 'package:carenta/service/user/user_create_booking_service.dart'; // ✅ make sure this exists
 import 'widgets/booking_car_header_widget.dart';
 
 class UserCreateBookingscreen extends StatefulWidget {
@@ -26,7 +25,6 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
   final _pickupC = TextEditingController();
   final _dropoffC = TextEditingController();
   final _validationService = BookingValidationService();
-  final _bookingService = UserCreateBookingService(); // ✅ new line
 
   int? _userId;
   bool _checkingSession = true;
@@ -86,7 +84,10 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
 
   double get _total => _dailyRate * _rentalDays;
 
-  // ✅ Updated: Creates rental first, then navigates to payment
+  // ============================================================
+  // 🔥 SUBMIT — NO RENTAL CREATED HERE ANYMORE!
+  // Rental will be created AFTER payment by PayMongo Webhook.
+  // ============================================================
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_startDate == null || _endDate == null || _pickupTime == null) {
@@ -96,6 +97,7 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
 
     final carId = int.tryParse('${widget.car['carid']}') ?? 0;
 
+    // Validate selected date range
     final available = await _validationService.isRangeAvailable(
       carId,
       _startDate!,
@@ -110,53 +112,30 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
     setState(() => _loading = true);
 
     try {
-      // ✅ 1) Create rental first (status=pending)
-      final result = await _bookingService.createBooking(
-        carId: carId,
-        userId: _userId!,
-        startDate: _dateFmt.format(_startDate!),
-        endDate: _dateFmt.format(_endDate!),
-        startTime: _formatTime(_pickupTime!),
-        endTime: _dropoffTime != null ? _formatTime(_dropoffTime!) : '00:00',
-        pickupLocation: _pickupC.text.trim(),
-        dropoffLocation: _dropoffC.text.trim(),
-        totalDays: _rentalDays,
-        dailyRate: _dailyRate,
-        totalAmount: _total,
-      );
+      // 🚀 DO NOT create rental here anymore.
+      // Instead, pass booking details directly to payment screen.
 
-      if (result.success != true || result.rentalId == null) {
-        _showError(result.message ?? 'Failed to create booking.');
-        setState(() => _loading = false);
-        return;
-      }
+      final bookingData = {
+        "car_id": carId,
+        "car_name": "${widget.car['manufacturer']} ${widget.car['model']}",
+        "days": _rentalDays,
+        "pickup_location": _pickupC.text.trim(),
+        "dropoff_location": _dropoffC.text.trim(),
+        "total_amount": _total,
+        "currency": widget.car['currency'] ?? 'PHP',
+        "start_date": _dateFmt.format(_startDate!),
+        "end_date": _dateFmt.format(_endDate!),
+        "start_time": _formatTime(_pickupTime!),
+        "end_time": _dropoffTime != null ? _formatTime(_dropoffTime!) : "00:00",
+      };
 
-      final rentalId = result.rentalId!;
-      debugPrint("✅ Created rental_id: $rentalId for user $_userId");
-
-      // ✅ 2) Navigate to Payment screen with real rental_id
       if (!mounted) return;
+
+      // 🚀 Navigate to Payment screen WITHOUT rental_id
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BookingPaymentScreen(
-            booking: {
-              "rental_id": rentalId,
-              "user_id": _userId,
-              "carid": carId,
-              "car_name": "${widget.car['manufacturer']} ${widget.car['model']}",
-              "days": _rentalDays,
-              "pickup_location": _pickupC.text.trim(),
-              "dropoff_location": _dropoffC.text.trim(),
-              "total_amount": _total,
-              "currency": widget.car['currency'] ?? 'PHP',
-              "start_date": _dateFmt.format(_startDate!),
-              "end_date": _dateFmt.format(_endDate!),
-              "pickup_time": _formatTime(_pickupTime!),
-              "dropoff_time":
-                  _dropoffTime != null ? _formatTime(_dropoffTime!) : '00:00',
-            },
-          ),
+          builder: (_) => BookingPaymentScreen(booking: bookingData),
         ),
       );
     } catch (e) {
@@ -184,8 +163,7 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
   @override
   Widget build(BuildContext context) {
     if (_checkingSession) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -201,7 +179,10 @@ class _UserCreateBookingscreenState extends State<UserCreateBookingscreen> {
           BookingCarHeader(car: widget.car, dailyRate: _dailyRate),
           const SizedBox(height: 16),
           BookingTripForm(
-              formKey: _formKey, pickupC: _pickupC, dropoffC: _dropoffC),
+            formKey: _formKey,
+            pickupC: _pickupC,
+            dropoffC: _dropoffC,
+          ),
           const SizedBox(height: 16),
           BookingDateSelection(
             blocked: _blocked,

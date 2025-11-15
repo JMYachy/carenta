@@ -2,71 +2,128 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:carenta/service/config/service_base_url.dart';
 
-class PayMongoCheckoutResult {
-  final bool ok;
-  final String? checkoutUrl;
-  final int? paymentId;
-  final String? referenceNo;
-  final String? phase;
-  final double? amount;
-  final String? message;
-
-  PayMongoCheckoutResult({
-    required this.ok,
-    this.checkoutUrl,
-    this.paymentId,
-    this.referenceNo,
-    this.phase,
-    this.amount,
-    this.message,
-  });
-
-  factory PayMongoCheckoutResult.fromJson(Map<String, dynamic> json) {
-    return PayMongoCheckoutResult(
-      ok: json['ok'] ?? false,
-      checkoutUrl: json['checkout_url'],
-      paymentId: json['payment_id'],
-      referenceNo: json['reference_no'],
-      phase: json['phase'],
-      amount: json['amount'] != null
-          ? double.tryParse(json['amount'].toString())
-          : null,
-      message: json['message'],
-    );
-  }
-}
-
+/// BookingPaymentService
+/// Handles PayMongo checkout creation and payment polling.
 class BookingPaymentService {
-  static Future<PayMongoCheckoutResult> createCheckout({
-    required int rentalId,
+  final http.Client _client;
+
+  BookingPaymentService({http.Client? client})
+    : _client = client ?? http.Client();
+
+  /// ================================================================
+  /// 🔵 CREATE PAYMONGO CHECKOUT SESSION
+  /// Rental is NOT created here — only stored metadata for webhook.
+  /// ================================================================
+  Future<Map<String, dynamic>> createCheckout({
     required int userId,
-    required String phase, // "deposit" or "full"
+    required int carId,
+    required String startDate,
+    required String startTime,
+    required String endDate,
+    required String endTime,
+    required String pickupLocation,
+    required String dropoffLocation,
+    required double amount,
+    required String method, // gcash | card
+    String phase = 'full', // full | deposit
     double depositPercent = 30.0,
   }) async {
-    final url = Uri.parse(ServiceBaseUrl.endpoint('paymongo_create_checkout.php'));
+    final url = ServiceBaseUrl.endpoint("paymongo_create_checkout.php");
 
-    // ✅ Send as form data (not JSON)
+    // 🔥 IMPORTANT:
+    // - `rentalid` is 0 because rental is created AFTER payment by webhook
+    // - `userid`, `amount`, `method`, etc. match your PHP script
+    // - extra booking fields used as metadata in PHP → PayMongo
     final body = {
-      'rental_id': rentalId.toString(),
-      'user_id': userId.toString(),
-      'payment_phase': phase,
-      'deposit_percent': depositPercent.toString(),
+      "rentalid": 0, // placeholder rental (real rental created after payment)
+      "userid": userId,
+      "amount": amount,
+      "method": method.toLowerCase(),
+      "payment_phase": phase,
+      "deposit_percent": depositPercent,
+
+      // Booking metadata for PHP / PayMongo metadata:
+      "car_id": carId,
+      "start_date": startDate,
+      "start_time": startTime,
+      "end_date": endDate,
+      "end_time": endTime,
+      "pickup_location": pickupLocation,
+      "dropoff_location": dropoffLocation,
     };
 
-    final res = await http.post(
-      url,
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'}, // ✅ changed
-      body: body, // ✅ not jsonEncode()
+    final res = await _client.post(
+      Uri.parse(url),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(body),
     );
 
-    print("📤 Sent PayMongo body: $body");
-    print("📡 Response ${res.statusCode}: ${res.body}");
-
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      return PayMongoCheckoutResult.fromJson(data);
-    } else {
-      throw Exception('HTTP ${res.statusCode}: ${res.reasonPhrase}');
+    if (res.statusCode != 200) {
+      throw Exception("HTTP ${res.statusCode}: ${res.body}");
     }
+
+    final decoded = jsonDecode(res.body);
+
+    if (decoded is! Map || decoded["success"] != true) {
+      throw Exception(decoded["message"] ?? "Failed to create checkout");
+    }
+
+    return {
+      "success": true,
+      "checkoutUrl": decoded["checkout_url"],
+      "referenceNo": decoded["reference_no"],
+      "paymentId": decoded["paymentid"],
+      "transactionId": decoded["transaction_id"],
+    };
   }
+
+  /// ================================================================
+  /// 🔵 CHECK PAYMENT STATUS
+  /// Uses payment_status.php?ref=... (returns payment + rental)
+  /// Returns: pending | paid | failed | refunded
+  /// ================================================================
+  Future<String> checkPaymentStatus(String referenceNo) async {
+    if (referenceNo.isEmpty) {
+      throw Exception("Reference number is required");
+    }
+
+    final uri = Uri.parse(
+      ServiceBaseUrl.endpoint("payment_status.php?ref=$referenceNo"),
+    );
+
+    final res = await _client.get(uri);
+
+    if (res.statusCode != 200) {
+      throw Exception("HTTP ${res.statusCode}: ${res.body}");
+    }
+
+    final decoded = jsonDecode(res.body);
+
+    if (decoded is! Map || decoded["success"] != true) {
+      throw Exception(decoded["message"] ?? "Failed to fetch payment status");
+    }
+
+    final payment = decoded["payment"] ?? {};
+
+    return (payment["status"] ?? "unknown").toString().toLowerCase();
+  }
+
+  /// ================================================================
+  /// 🔵 Fetch full payment & rental detail (optional usage)
+  /// ================================================================
+  Future<Map<String, dynamic>?> fetchPaymentDetail(String referenceNo) async {
+    final uri = Uri.parse(
+      ServiceBaseUrl.endpoint("payment_status.php?ref=$referenceNo"),
+    );
+
+    final res = await _client.get(uri);
+    if (res.statusCode != 200) return null;
+
+    final decoded = jsonDecode(res.body);
+    if (decoded is! Map || decoded["success"] != true) return null;
+
+    return {"payment": decoded["payment"], "rental": decoded["rental"]};
+  }
+
+  void close() => _client.close();
 }

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:carenta/service/user/user_verification_service.dart';
+import 'package:carenta/user/profile_screen/service/user_verification_service.dart';
 
 const Color colorBlue = Color(0xFF1D84B5);
 const Color colorLightBlue = Color(0xFFE9F1F7);
@@ -13,13 +13,14 @@ class UserVertificationScreen extends StatefulWidget {
 
   @override
   State<UserVertificationScreen> createState() =>
-      _UserVerificationScreenState();
+      _UserVertificationScreenState();
 }
 
-class _UserVerificationScreenState extends State<UserVertificationScreen> {
+class _UserVertificationScreenState extends State<UserVertificationScreen> {
   String _idType = 'National ID';
   File? _frontImage;
   File? _backImage;
+  File? _barangayDoc;
   bool _uploading = false;
 
   final ImagePicker _picker = ImagePicker();
@@ -41,21 +42,40 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
     }
   }
 
+  Future<void> _pickBarangayDoc() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() {
+        _barangayDoc = File(picked.path);
+      });
+    }
+  }
+
   Future<void> _submitVerification() async {
-    if (_frontImage == null) {
+    if (_frontImage == null || _backImage == null || _barangayDoc == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload your ID front image')),
+        const SnackBar(
+          content: Text(
+            'Please upload all required documents (Front, Back, Barangay Doc)',
+          ),
+        ),
       );
       return;
     }
 
     setState(() => _uploading = true);
 
-    final res = await UserVerificationService.submitVerification(
+    final res = await UserVerificationService.submitVerificationV2(
       userId: widget.userId,
       idType: _idType,
-      frontImage: _frontImage!,
-      backImage: _backImage,
+      idNumber: '', // optional field
+      idFront: _frontImage!,
+      idBack: _backImage,
+      barangayDoc: _barangayDoc!,
     );
 
     setState(() => _uploading = false);
@@ -84,7 +104,7 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Top Header
+            // --- HEADER CARD ---
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -118,7 +138,7 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Please upload your valid ID for account verification. "
+                    "Please upload your valid ID and Barangay Income/Tax Document for account verification. "
                     "Your submission will be reviewed by our manager.",
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.grey[700],
@@ -130,7 +150,7 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
 
             const SizedBox(height: 24),
 
-            // ID Type Dropdown
+            // --- ID TYPE DROPDOWN ---
             Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -156,6 +176,10 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
                       value: 'Driver License',
                       child: Text('Driver’s License'),
                     ),
+                    DropdownMenuItem(
+                      value: 'Passport',
+                      child: Text('Passport'),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _idType = v!),
                 ),
@@ -164,25 +188,34 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
 
             const SizedBox(height: 16),
 
-            // Front Image Upload
+            // --- FRONT IMAGE ---
             _buildImageUploader(
               title: "Front Side of ID *",
               file: _frontImage,
               onTap: () => _pickImage(true),
             ),
-
             const SizedBox(height: 16),
 
-            // Back Image Upload
+            // --- BACK IMAGE ---
             _buildImageUploader(
-              title: "Back Side of ID (Optional)",
+              title: "Back Side of ID *",
               file: _backImage,
               onTap: () => _pickImage(false),
+            ),
+            const SizedBox(height: 16),
+
+            // --- BARANGAY DOC ---
+            _buildImageUploader(
+              title: "Barangay Income/Tax Document *",
+              file: _barangayDoc,
+              onTap: _pickBarangayDoc,
+              icon: Icons.picture_as_pdf_rounded,
+              color: Colors.green,
             ),
 
             const SizedBox(height: 30),
 
-            // Submit Button
+            // --- SUBMIT BUTTON ---
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -208,8 +241,8 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
                 onPressed: _uploading ? null : _submitVerification,
               ),
             ),
-
             const SizedBox(height: 10),
+
             if (_uploading)
               const Text(
                 "Please wait while we upload your documents...",
@@ -221,10 +254,13 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
     );
   }
 
+  // --- CUSTOM UPLOADER CARD ---
   Widget _buildImageUploader({
     required String title,
     required File? file,
     required VoidCallback onTap,
+    IconData icon = Icons.add_a_photo_rounded,
+    Color color = colorBlue,
   }) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -248,17 +284,13 @@ class _UserVerificationScreenState extends State<UserVertificationScreen> {
                 ),
                 child:
                     file == null
-                        ? const Center(
+                        ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                Icons.add_a_photo_rounded,
-                                size: 40,
-                                color: colorBlue,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
+                              Icon(icon, size: 40, color: color),
+                              const SizedBox(height: 8),
+                              const Text(
                                 "Tap to upload",
                                 style: TextStyle(color: Colors.black54),
                               ),

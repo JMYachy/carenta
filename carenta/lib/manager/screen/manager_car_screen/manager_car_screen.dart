@@ -4,8 +4,7 @@ import 'package:carenta/manager/screen/manager_car_screen/widget/car_list_view.d
 import 'package:carenta/manager/screen/manager_car_screen/widget/car_search_bar.dart';
 import 'package:carenta/manager/screen/manager_car_screen/widget/car_stats_overview.dart';
 import 'package:flutter/material.dart';
-
-import 'package:carenta/Admin/car_management/add_car.dart';
+import 'package:carenta/manager/screen/manager_car_screen/manager_add_car/mangaer_add_car_screen.dart';
 
 class ManagerCarScreen extends StatefulWidget {
   final String? filterStatus;
@@ -23,7 +22,12 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
   List<Map<String, dynamic>> _filtered = [];
   String _activeFilter = 'all';
   bool _loading = true;
-  Map<String, int> _stats = {'available': 0, 'rented': 0, 'maintenance': 0, 'inactive': 0};
+  Map<String, int> _stats = {
+    'available': 0,
+    'rented': 0,
+    'maintenance': 0,
+    'inactive': 0,
+  };
 
   bool _mounted = true;
 
@@ -103,7 +107,9 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
                     onAdd: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AddCar()),
+                        MaterialPageRoute(
+                          builder: (_) => const ManagerAddCarScreen(),
+                        ),
                       );
                       _loadCars();
                     },
@@ -111,11 +117,16 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
                   const SizedBox(height: 8),
                   Container(
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black12, blurRadius: 6),
+                      ],
                     ),
                     child: CarStatsOverview(
                       available: _stats['available'] ?? 0,
@@ -136,20 +147,17 @@ class _ManagerCarScreenState extends State<ManagerCarScreen> {
           ),
           // ✅ Car list as SliverList
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                if (index >= _filtered.length) return null;
-                final car = _filtered[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: CarListView(
-                    cars: [car],
-                    onReload: _loadCars,
-                  ),
-                );
-              },
-              childCount: _filtered.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index >= _filtered.length) return null;
+              final car = _filtered[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                child: CarListView(cars: [car], onReload: _loadCars),
+              );
+            }, childCount: _filtered.length),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],

@@ -46,7 +46,7 @@ class _SigninScreenState extends State<SigninScreen> {
 
         Widget targetScreen;
         if (role == 'admin') {
-          targetScreen = const Placeholder();
+          targetScreen = const AdminDashboard();
         } else if (role == 'manager') {
           targetScreen = const ManagerDashboardScreen();
         } else {
@@ -131,15 +131,20 @@ class _SigninScreenState extends State<SigninScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF0077B6),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: _isLoading
-                              ? const CircularProgressIndicator()
-                              : const Text('Sign In',
-                                  style: TextStyle(fontSize: 18)),
+                          child:
+                              _isLoading
+                                  ? const CircularProgressIndicator()
+                                  : const Text(
+                                    'Sign In',
+                                    style: TextStyle(fontSize: 18),
+                                  ),
                         ),
                         const SizedBox(height: 10),
                         TextButton(
@@ -147,7 +152,8 @@ class _SigninScreenState extends State<SigninScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (_) => const SignupScreen()),
+                                builder: (_) => const SignupScreen(),
+                              ),
                             );
                           },
                           child: const Text(
@@ -186,17 +192,18 @@ class _SigninScreenState extends State<SigninScreen> {
           borderSide: BorderSide.none,
         ),
         prefixIcon: Icon(icon, color: const Color(0xFF0077B6)),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                  color: const Color(0xFF0077B6),
-                ),
-                onPressed: () {
-                  setState(() => _passwordVisible = !_passwordVisible);
-                },
-              )
-            : null,
+        suffixIcon:
+            isPassword
+                ? IconButton(
+                  icon: Icon(
+                    _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                    color: const Color(0xFF0077B6),
+                  ),
+                  onPressed: () {
+                    setState(() => _passwordVisible = !_passwordVisible);
+                  },
+                )
+                : null,
       ),
       style: const TextStyle(color: Colors.black),
     );
